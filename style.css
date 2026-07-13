@@ -1,0 +1,66 @@
+/* Fondos Dinámicos Suaves pero con más Fuerza e Intensidad */
+.theme-venta {
+    background-color: #bbf7ec !important; /* Verde agua vibrante (Teal suave pero marcado) */
+    transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.theme-gasto {
+    background-color: #fecdd3 !important; /* Rojo agua / Rosa coral más intenso y definido */
+    transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Efecto Claymorfismo base para Tarjetas */
+.clay-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    border-radius: 24px;
+    /* Combinación de sombra exterior y dos sombras internas (oscura abajo-derecha, clara arriba-izquierda) */
+    box-shadow: 
+        0 16px 32px rgba(31, 41, 55, 0.04),
+        inset -6px -6px 12px rgba(0, 0, 0, 0.05),
+        inset 6px 6px 12px rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+/* Inputs estilo Plastilina */
+.clay-input {
+    background: #f1f5f9;
+    border-radius: 16px;
+    border: 2px solid transparent;
+    box-shadow: 
+        inset 3px 3px 6px rgba(0, 0, 0, 0.05),
+        inset -3px -3px 6px rgba(255, 255, 255, 0.9);
+    transition: all 0.25s ease;
+}
+
+.clay-input:focus {
+    background: #ffffff;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+}
+
+/* Botones inflados estilo Clay */
+.clay-btn {
+    border-radius: 16px;
+    box-shadow: 
+        0 8px 16px rgba(99, 102, 241, 0.2),
+        inset -4px -4px 8px rgba(0, 0, 0, 0.15),
+        inset 4px 4px 8px rgba(255, 255, 255, 0.3);
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.clay-btn:active {
+    transform: scale(0.96);
+    box-shadow: 
+        0 4px 8px rgba(99, 102, 241, 0.1),
+        inset 3px 3px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* Animaciones */
+@keyframes slideIn {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+.animate-slide-in {
+    animation: slideIn 0.3s ease forwards;
+}

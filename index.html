@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control Económico Clay</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="text-slate-800 antialiased theme-venta">
+
+  <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4"></div>
+
+  <!-- LOGIN CLAY -->
+  <div id="loginSection" class="fixed inset-0 bg-slate-900/20 backdrop-blur-md flex items-center justify-center p-4 z-40">
+    <div class="clay-card p-8 max-w-sm w-full text-center animate-slide-in">
+      <span class="text-4xl block mb-2">🔒</span>
+      <h2 class="text-xl font-bold text-slate-900 mb-1">Acceso al Sistema</h2>
+      <p class="text-xs text-slate-400 mb-6">Ingresa tu contraseña asignada</p>
+      <input type="password" id="passwordInput" placeholder="••••" class="w-full text-center clay-input px-4 py-3 text-lg mb-4 tracking-widest outline-none">
+      <button onclick="verificarLogin()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 clay-btn text-sm">
+        Ingresar
+      </button>
+      <p id="errorLogin" class="text-rose-500 text-xs mt-3 hidden font-medium">⚠️ Contraseña incorrecta</p>
+    </div>
+  </div>
+
+  <!-- DASHBOARD PRINCIPAL -->
+  <div id="mainDashboard" class="min-h-screen flex flex-col hidden">
+    <!-- BARRA SUPERIOR -->
+    <header class="bg-white/60 backdrop-blur-md px-6 py-4 flex justify-between items-center sticky top-0 z-30 border-b border-white/40">
+      <div class="flex items-center space-x-2">
+        <span class="text-xl">📊</span>
+        <h1 class="text-base md:text-lg font-bold text-slate-900">
+          Control Finanzas <span id="badgeRol" class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full ml-2 font-bold uppercase"></span>
+        </h1>
+      </div>
+      <div class="flex items-center space-x-2">
+        <button id="btnActualizar" class="bg-white text-slate-700 font-bold px-4 py-2 rounded-xl text-xs shadow-sm border border-slate-100 active:scale-95 transition-all">
+          🔄 Actualizar
+        </button>
+        <button onclick="logout()" class="text-slate-400 hover:text-slate-600 p-2 text-sm">
+          🚪 Salir
+        </button>
+      </div>
+    </header>
+
+    <!-- CUERPO PRINCIPAL -->
+    <main class="flex-1 p-4 md:p-6 max-w-7xl w-full mx-auto space-y-6">
+      
+      <!-- INDICADORES DIARIOS (ADMIN) -->
+      <section id="adminKPIs" class="grid grid-cols-2 lg:grid-cols-4 gap-4 hidden">
+        <div class="clay-card p-5">
+          <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ventas Hoy</p>
+          <h3 id="txtVentasTotal" class="text-xl font-black text-emerald-600 mt-1">$0</h3>
+        </div>
+        <div class="clay-card p-5">
+          <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Gastos Hoy</p>
+          <h3 id="txtGastosTotal" class="text-xl font-black text-rose-600 mt-1">$0</h3>
+        </div>
+        <div class="clay-card p-5">
+          <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Caja Efectivo</p>
+          <h3 id="txtCajaEfectivo" class="text-xl font-black text-sky-600 mt-1">$0</h3>
+        </div>
+        <div class="clay-card p-5">
+          <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Caja Transf.</p>
+          <h3 id="txtCajaTransf" class="text-xl font-black text-violet-600 mt-1">$0</h3>
+        </div>
+      </section>
+
+      <!-- SECCIÓN DE TRABAJO -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- FORMULARIO DE CARGA -->
+        <div class="clay-card p-6 flex flex-col justify-between">
+          <div>
+            <h2 class="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <span>📝</span> Registrar Operación
+            </h2>
+            
+            <div class="space-y-4">
+              <div>
+                <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Tipo de Movimiento</label>
+                <select id="tipoMovimiento" class="w-full clay-input px-3 py-2.5 text-sm outline-none">
+                  <option value="VENTA">📈 Venta (Ingreso)</option>
+                  <option value="GASTO">📉 Gasto / Proveedor (Egreso)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Monto ($)</label>
+                <input type="number" id="montoInput" inputmode="decimal" placeholder="0" class="w-full clay-input px-3 py-2.5 text-sm outline-none">
+              </div>
+
+              <div>
+                <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Método de Pago</label>
+                <select id="tipoPagoInput" class="w-full clay-input px-3 py-2.5 text-sm outline-none">
+                  <option value="Efectivo">Efectivo</option>
+                  <option value="Transferencia">Transferencia</option>
+                </select>
+              </div>
+
+              <div>
+                <label id="lblDetalle" class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Nombre del Cliente</label>
+                <input type="text" id="detalleInput" placeholder="Nombre completo" class="w-full clay-input px-3 py-2.5 text-sm outline-none">
+              </div>
+            </div>
+          </div>
+
+          <button id="btnGuardar" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 clay-btn text-sm mt-6">
+            Guardar Movimiento
+          </button>
+        </div>
+
+        <!-- RECUADROS EXCLUSIVOS DE ADMIN: GRÁFICOS Y BALANCE -->
+        <div id="adminCharts" class="lg:col-span-2 space-y-6 hidden">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="clay-card p-5 h-64 flex flex-col">
+              <h3 class="text-xs font-bold text-slate-400 mb-3 text-center uppercase tracking-wider">Ventas vs Gastos</h3>
+              <div class="flex-1 relative"><canvas id="chartDiario"></canvas></div>
+            </div>
+
+            <div class="clay-card p-5 h-64 flex flex-col">
+              <h3 class="text-xs font-bold text-slate-400 mb-3 text-center uppercase tracking-wider">Top Clientes</h3>
+              <div class="flex-1 relative"><canvas id="chartClientes"></canvas></div>
+            </div>
+          </div>
+
+          <!-- NUEVO: SECCIÓN DE BALANCE MENSUAL -->
+          <div class="clay-card p-6 bg-gradient-to-br from-white/90 to-slate-50/50">
+            <h3 class="text-xs font-bold text-slate-400 mb-4 uppercase tracking-wider flex items-center gap-2">
+              <span>📅</span> Balance y Cierre Mensual (Últimos 30 días)
+            </h3>
+            <div class="grid grid-cols-3 gap-4 text-center">
+              <div class="bg-slate-100/50 p-3 rounded-xl border border-white">
+                <p class="text-[10px] text-slate-400 font-bold uppercase">Ingresos Mes</p>
+                <p id="mesVentas" class="text-sm md:text-base font-bold text-emerald-600 mt-1">$0</p>
+              </div>
+              <div class="bg-slate-100/50 p-3 rounded-xl border border-white">
+                <p class="text-[10px] text-slate-400 font-bold uppercase">Egresos Mes</p>
+                <p id="mesGastos" class="text-sm md:text-base font-bold text-rose-600 mt-1">$0</p>
+              </div>
+              <div class="bg-indigo-500/10 p-3 rounded-xl border border-indigo-200/30">
+                <p class="text-[10px] text-indigo-500 font-bold uppercase">Rendimiento Neto</p>
+                <p id="mesNeto" class="text-sm md:text-base font-black text-indigo-600 mt-1">$0</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
