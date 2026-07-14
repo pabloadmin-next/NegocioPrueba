@@ -1,5 +1,5 @@
-const urlAppsScript = "https://script.google.com/macros/s/AKfycbwB8uu1vIJquglN5a3sP3SLsXdlhmhpKYp5X9hQpR18THLW4R94PkCfDg2W7e5K1UIeNg/exec"; 
- 
+const urlAppsScript = "https://script.google.com/macros/s/AKfycbzini5YjH1lstyXE7G1UlliwX6gL1Bg48c67eizCD9sUJivUa_gi0wt0kf7zpknrV0kRQ/exec"; 
+
 
 const USUARIOS = {
     "admin1": { nombre: "Carlos (Admin)", rol: "ADMIN", clave: "admin2026" },
@@ -9,62 +9,61 @@ const USUARIOS = {
 };
 
 let usuarioActivo = null; 
-let datosLocalesCrudos = null; // Guardará la respuesta consolidada de Google Sheets
+let datosLocalesCrudos = null; 
 let chartDiario = null;
-let chartClientes = null;
+let chartClientes = null; 
 let productosBase = [];
 let html5QrCode = null;
+let carrito = [];
 
 document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("tipoMovimiento").addEventListener("change", (e) => {
-        const lbl = document.getElementById("lblDetalle");
-        const input = document.getElementById("detalleInput");
-        const body = document.body;
-
-        if(e.target.value === "GASTO") {
-            lbl.innerText = "Concepto del Gasto / Proveedor";
-            input.placeholder = "Ej: Pago de limpieza";
-            body.classList.remove("theme-venta");
-            body.classList.add("theme-gasto");
-            document.getElementById("btnEscanear").classList.add("hidden");
-        } else {
-            lbl.innerText = "Nombre del Cliente o Producto";
-            input.placeholder = "Ej: Coca-Cola 1.5L / Juan Pérez";
-            body.classList.remove("theme-gasto");
-            body.classList.add("theme-venta");
-            document.getElementById("btnEscanear").classList.remove("hidden");
-        }
-    });
-
+    document.getElementById("tipoMovimiento").addEventListener("change", alternarTipoOperacion);
     document.getElementById("btnGuardar").addEventListener("click", enviarDatos);
     document.getElementById("btnActualizar").addEventListener("click", consultarPlanilla);
     document.getElementById("btnEscanear").addEventListener("click", iniciarEscaneo);
     document.getElementById("btnCerrarScanner").addEventListener("click", detenerEscaneo);
+    document.getElementById("btnAgregarCarrito").addEventListener("click", agregarAlCarrito);
     
-    // Filtro dinámico para recargar gráficos al cambiar el Local
+    // Buscador interactivo de productos de la planilla
+    document.getElementById("productoInput").addEventListener("input", buscarProductosEnBase);
+    
     document.getElementById("filtroLocalAdmin").addEventListener("change", renderizarDatosAdmin);
     
     document.getElementById("passwordInput").addEventListener("keypress", (e) => {
         if(e.key === "Enter") verificarLogin();
     });
+
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest("#productoInput") && !e.target.closest("#sugerenciasList")) {
+            document.getElementById("sugerenciasList").classList.add("hidden");
+        }
+    });
 });
+
+function alternarTipoOperacion(e) {
+    const valor = e.target.value;
+    if(valor === "GASTO") {
+        document.getElementById("seccionBuscadorProductos").classList.add("hidden");
+        document.getElementById("seccionCarrito").classList.add("hidden");
+        document.getElementById("containerPago").classList.add("hidden");
+        document.getElementById("seccionGastoDirecto").classList.remove("hidden");
+    } else {
+        document.getElementById("seccionBuscadorProductos").classList.remove("hidden");
+        document.getElementById("seccionCarrito").classList.remove("hidden");
+        document.getElementById("containerPago").classList.remove("hidden");
+        document.getElementById("seccionGastoDirecto").classList.add("hidden");
+    }
+}
 
 function mostrarToast(mensaje, tipo = "success") {
     const contenedor = document.getElementById("toastContainer");
     const toast = document.createElement("div");
     const colorBg = tipo === "success" ? "bg-emerald-500" : "bg-rose-500";
-    const icono = tipo === "success" ? "✨" : "⚠️";
-
-    toast.className = `${colorBg} text-white px-5 py-3.5 rounded-2xl shadow-xl flex items-center space-x-3 text-xs font-bold tracking-wide animate-slide-in pointer-events-auto border border-white/20`;
-    toast.style.boxShadow = "0 10px 20px rgba(0,0,0,0.1), inset -3px -3px 6px rgba(0,0,0,0.1), inset 3px 3px 6px rgba(255,255,255,0.2)";
-    toast.innerHTML = `<span>${icono}</span> <span>${mensaje}</span>`;
-    
+    toast.className = `${colorBg} text-white px-5 py-3 rounded-2xl shadow-xl flex items-center space-x-3 text-xs font-bold pointer-events-auto transition-all duration-300`;
+    toast.innerHTML = `<span>${tipo === 'success' ? '✨' : '⚠️'}</span> <span>${mensaje}</span>`;
     contenedor.appendChild(toast);
-
     setTimeout(() => {
         toast.style.opacity = "0";
-        toast.style.transform = "scale(0.9) translateY(-10px)";
-        toast.style.transition = "all 0.3s ease";
         setTimeout(() => toast.remove(), 300);
     }, 3000);
 }
@@ -72,13 +71,12 @@ function mostrarToast(mensaje, tipo = "success") {
 function verificarLogin() {
     const inputPass = document.getElementById("passwordInput").value;
     const errorMsg = document.getElementById("errorLogin");
-    
     const encontrado = Object.values(USUARIOS).find(u => u.clave === inputPass);
 
     if (encontrado) {
         usuarioActivo = encontrado;
         conectarInterfaz();
-        mostrarToast(`Hola ${usuarioActivo.nombre}`);
+        mostrarToast(`Bienvenido ${usuarioActivo.nombre}`);
         descargarListaProductos();
     } else {
         errorMsg.classList.remove("hidden");
@@ -89,7 +87,6 @@ function conectarInterfaz() {
     document.getElementById("loginSection").classList.add("hidden");
     document.getElementById("mainDashboard").classList.remove("hidden");
     document.getElementById("badgeRol").innerText = usuarioActivo.nombre;
-    document.getElementById("errorLogin").classList.add("hidden");
 
     if (usuarioActivo.rol === "ADMIN") {
         document.getElementById("adminKPIs").classList.remove("hidden");
@@ -111,29 +108,61 @@ function descargarListaProductos() {
     .then(data => {
         if(Array.isArray(data)) {
             productosBase = data;
+            console.log("Productos sincronizados:", productosBase.length);
         }
     })
-    .catch(() => console.log("Operando en modo manual sin sincronización."));
+    .catch(() => console.log("Operando sin sincronización de productos."));
+}
+
+function buscarProductosEnBase(e) {
+    const busqueda = e.target.value.toLowerCase().trim();
+    const desplegable = document.getElementById("sugerenciasList");
+    desplegable.innerHTML = "";
+
+    if (busqueda.length === 0) {
+        desplegable.classList.add("hidden");
+        return;
+    }
+
+    const coincidencias = productosBase.filter(p => 
+        p.producto.toLowerCase().includes(busqueda) || 
+        String(p.codigo).includes(busqueda)
+    ).slice(0, 5);
+
+    if (coincidencias.length === 0) {
+        desplegable.classList.add("hidden");
+        return;
+    }
+
+    coincidencias.forEach(p => {
+        const item = document.createElement("div");
+        item.className = "px-4 py-2 hover:bg-slate-50 cursor-pointer text-xs font-semibold text-slate-700 border-b border-slate-100 last:border-b-0";
+        item.innerText = `${p.producto} ($${p.precio})`;
+        item.addEventListener("click", () => {
+            document.getElementById("productoInput").value = p.producto;
+            document.getElementById("precioInput").value = p.precio;
+            desplegable.classList.add("hidden");
+        });
+        desplegable.appendChild(item);
+    });
+
+    desplegable.classList.remove("hidden");
 }
 
 function iniciarEscaneo() {
-    const scannerBox = document.getElementById("scannerContainer");
-    scannerBox.classList.remove("hidden");
-    
+    document.getElementById("scannerContainer").classList.remove("hidden");
     html5QrCode = new Html5Qrcode("reader");
-    const config = { fps: 15, qrbox: { width: 250, height: 120 } };
-
     html5QrCode.start(
         { facingMode: "environment" },
-        config,
+        { fps: 15, qrbox: { width: 250, height: 120 } },
         (decodedText) => {
             detenerEscaneo();
             procesarCodigoEscaneado(decodedText);
         },
         () => {}
     ).catch(() => {
-        mostrarToast("No se pudo iniciar la cámara", "error");
-        scannerBox.classList.add("hidden");
+        mostrarToast("Cámara no disponible", "error");
+        document.getElementById("scannerContainer").classList.add("hidden");
     });
 }
 
@@ -150,13 +179,87 @@ function detenerEscaneo() {
 function procesarCodigoEscaneado(codigo) {
     const buscado = productosBase.find(p => String(p.codigo).trim() === String(codigo).trim());
     if (buscado) {
-        document.getElementById("detalleInput").value = buscado.producto;
-        document.getElementById("montoInput").value = buscado.precio;
-        mostrarToast(`Producto encontrado: ${buscado.producto}`, "success");
+        document.getElementById("productoInput").value = buscado.producto;
+        document.getElementById("precioInput").value = buscado.precio;
+        mostrarToast(`Encontrado: ${buscado.producto}`);
     } else {
-        document.getElementById("detalleInput").value = `Código: ${codigo}`;
-        mostrarToast("Código nuevo no registrado", "error");
+        document.getElementById("productoInput").value = `Código: ${codigo}`;
+        document.getElementById("precioInput").value = "";
+        mostrarToast("Producto nuevo. Ingresá precio manualmente.", "error");
     }
+}
+
+// GESTIÓN DEL CARRITO EN TIEMPO REAL
+function agregarAlCarrito() {
+    const productoText = document.getElementById("productoInput").value.trim();
+    const precioUnitario = parseFloat(document.getElementById("precioInput").value);
+    const cantidad = parseFloat(document.getElementById("cantidadInput").value);
+
+    if (!productoText || isNaN(precioUnitario) || isNaN(cantidad) || cantidad <= 0) {
+        mostrarToast("Falta el producto o el precio unitario", "error");
+        return;
+    }
+
+    const subtotal = Math.round(precioUnitario * cantidad);
+
+    carrito.push({
+        producto: productoText,
+        precio: precioUnitario,
+        cantidad: cantidad,
+        subtotal: subtotal
+    });
+
+    document.getElementById("productoInput").value = "";
+    document.getElementById("precioInput").value = "";
+    document.getElementById("cantidadInput").value = "1";
+
+    mostrarToast(`Sumado: ${productoText}`);
+    renderizarCarrito();
+}
+
+function eliminarDeCarrito(index) {
+    carrito.splice(index, 1);
+    renderizarCarrito();
+}
+
+function vaciarCarrito() {
+    carrito = [];
+    renderizarCarrito();
+}
+
+function renderizarCarrito() {
+    const container = document.getElementById("listaCarrito");
+    const totalLabel = document.getElementById("totalVentaCarrito");
+    container.innerHTML = "";
+
+    if (carrito.length === 0) {
+        container.innerHTML = `<p class="text-center text-xs text-slate-400 py-4 italic">El carrito está vacío. Sumá algún producto arriba.</p>`;
+        totalLabel.innerText = "$0";
+        return;
+    }
+
+    let totalAcumulado = 0;
+
+    carrito.forEach((item, index) => {
+        totalAcumulado += item.subtotal;
+        const cantTexto = item.cantidad % 1 === 0 ? `${item.cantidad}u` : `${item.cantidad}kg`;
+
+        const row = document.createElement("div");
+        row.className = "flex justify-between items-center bg-white p-3 rounded-2xl border border-slate-100 shadow-sm";
+        row.innerHTML = `
+            <div>
+                <p class="text-xs font-bold text-slate-800">${item.producto}</p>
+                <p class="text-[10px] text-slate-400 font-medium">${cantTexto} x $${item.precio}</p>
+            </div>
+            <div class="flex items-center space-x-3">
+                <span class="text-xs font-bold text-slate-800">$${item.subtotal}</span>
+                <button onclick="eliminarDeCarrito(${index})" class="text-rose-500 hover:text-rose-700 text-xs px-1">❌</button>
+            </div>
+        `;
+        container.appendChild(row);
+    });
+
+    totalLabel.innerText = `$${totalAcumulado}`;
 }
 
 function logout() {
@@ -167,19 +270,36 @@ function logout() {
     detenerEscaneo();
 }
 
+// GUARDADO FINAL
 function enviarDatos() {
     const tipoMov = document.getElementById("tipoMovimiento").value;
-    const monto = parseFloat(document.getElementById("montoInput").value);
-    const tipoPago = document.getElementById("tipoPagoInput").value;
-    const detalle = document.getElementById("detalleInput").value.trim();
-    const local = document.getElementById("localRegistro").value; // Leemos el local activo del selector
+    const local = document.getElementById("localRegistro").value;
+    const btn = document.getElementById("btnGuardar");
 
-    if (!monto || !detalle) {
-        mostrarToast("Faltan datos obligatorios", "error");
-        return;
+    let monto = 0;
+    let tipoPago = "Efectivo";
+    let detalle = "";
+
+    if (tipoMov === "VENTA") {
+        if (carrito.length === 0) {
+            mostrarToast("El carrito de compras está vacío", "error");
+            return;
+        }
+        monto = carrito.reduce((sum, item) => sum + item.subtotal, 0);
+        tipoPago = document.getElementById("tipoPagoInput").value;
+        detalle = carrito.map(item => {
+            const cantStr = item.cantidad % 1 === 0 ? `${item.cantidad}u` : `${item.cantidad}kg`;
+            return `${cantStr} ${item.producto} ($${item.subtotal})`;
+        }).join(" | ");
+    } else {
+        monto = parseFloat(document.getElementById("montoGastoInput").value);
+        detalle = document.getElementById("detalleGastoInput").value.trim();
+        if (isNaN(monto) || monto <= 0 || !detalle) {
+            mostrarToast("Faltan datos del gasto", "error");
+            return;
+        }
     }
 
-    const btn = document.getElementById("btnGuardar");
     btn.innerText = "⏳ Guardando...";
     btn.disabled = true;
 
@@ -189,7 +309,7 @@ function enviarDatos() {
         tipoPago: tipoPago,
         detalle: detalle,
         usuario: usuarioActivo.nombre,
-        local: local // Enviamos el local a la nueva columna
+        local: local // Se envía el local activo correctamente
     };
 
     fetch(urlAppsScript, {
@@ -200,12 +320,16 @@ function enviarDatos() {
     })
     .then(res => res.json())
     .then(data => {
-        btn.innerText = "Guardar Movimiento";
+        btn.innerText = "Procesar Transacción";
         btn.disabled = false;
         if(data.status === "success") {
-            mostrarToast("Guardado con éxito");
-            document.getElementById("montoInput").value = "";
-            document.getElementById("detalleInput").value = "";
+            mostrarToast("¡Venta guardada con éxito!");
+            if (tipoMov === "VENTA") {
+                vaciarCarrito();
+            } else {
+                document.getElementById("montoGastoInput").value = "";
+                document.getElementById("detalleGastoInput").value = "";
+            }
             if (usuarioActivo.rol === "ADMIN") consultarPlanilla();
         } else {
             mostrarToast("Error: " + data.message, "error");
@@ -213,7 +337,7 @@ function enviarDatos() {
     })
     .catch(() => {
         mostrarToast("Fallo de red", "error");
-        btn.innerText = "Guardar Movimiento";
+        btn.innerText = "Procesar Transacción";
         btn.disabled = false;
     });
 }
@@ -228,43 +352,36 @@ function consultarPlanilla() {
     .then(res => {
         btnAct.innerText = "🔄 Actualizar";
         if(res.error) return;
-
-        datosLocalesCrudos = res; // Guardamos globalmente los datos para alternar rápido
-        renderizarDatosAdmin(); // Renderiza según el local seleccionado
+        datosLocalesCrudos = res; 
+        renderizarDatosAdmin(); 
     })
     .catch(() => { btnAct.innerText = "🔄 Actualizar"; });
 }
 
-// NUEVO: RENDERIZACIÓN DINÁMICA DE KPIs Y GRÁFICOS
 function renderizarDatosAdmin() {
     if (!datosLocalesCrudos) return;
     
-    // Leemos qué local quiere inspeccionar el administrador
     const localSeleccionado = document.getElementById("filtroLocalAdmin").value;
     const dataLocal = datosLocalesCrudos.locales[localSeleccionado];
 
     if (!dataLocal) return;
 
-    // Totales de Hoy (Suma de Efectivo, Transf y Tarjeta)
     const totalVentas = dataLocal.ventas.Efectivo + dataLocal.ventas.Transferencia + dataLocal.ventas.Tarjeta;
     const totalGastos = dataLocal.gastos.Efectivo + dataLocal.gastos.Transferencia + dataLocal.gastos.Tarjeta;
     
-    // Neto Diario
     const netoEfectivo = dataLocal.ventas.Efectivo - dataLocal.gastos.Efectivo;
     const netoDigital = (dataLocal.ventas.Transferencia + dataLocal.ventas.Tarjeta) - (dataLocal.gastos.Transferencia + dataLocal.gastos.Tarjeta);
 
-    // Asignación a las tarjetas visuales
     document.getElementById("txtVentasTotal").innerText = formatPesos(totalVentas);
     document.getElementById("txtGastosTotal").innerText = formatPesos(totalGastos);
     document.getElementById("txtCajaEfectivo").innerText = formatPesos(netoEfectivo);
     document.getElementById("txtCajaDigital").innerText = formatPesos(netoDigital);
 
-    // Indicadores Mensuales
     document.getElementById("mesVentas").innerText = formatPesos(dataLocal.balanceMes.ventas);
     document.getElementById("mesGastos").innerText = formatPesos(dataLocal.balanceMes.gastos);
     document.getElementById("mesNeto").innerText = formatPesos(dataLocal.balanceMes.ventas - dataLocal.balanceMes.gastos);
 
-    // Renderizado del Gráfico de Barra comparativo (Incluye Tarjeta)
+    // Gráfico de Ventas vs Gastos
     const ctxD = document.getElementById('chartDiario').getContext('2d');
     if (chartDiario) chartDiario.destroy();
     chartDiario = new Chart(ctxD, {
@@ -279,16 +396,16 @@ function renderizarDatosAdmin() {
         options: { responsive: true, maintainAspectRatio: false }
     });
 
-    // Top Clientes (Sigue siendo global para mantener la visualización general)
-    const clientes = Object.entries(datosLocalesCrudos.resumenClientes).sort((a,b) => b[1] - a[1]).slice(0, 5);
+    // NUEVO GRÁFICO: TOP PRODUCTOS MÁS VENDIDOS HOY
+    const productosTop = Object.entries(datosLocalesCrudos.topProductos).sort((a,b) => b[1] - a[1]).slice(0, 5);
     const ctxC = document.getElementById('chartClientes').getContext('2d');
     if (chartClientes) chartClientes.destroy();
     chartClientes = new Chart(ctxC, {
         type: 'bar',
         data: {
-            labels: clientes.map(c => c[0]),
-            datasets: [{ label: 'Total ($)', data: clientes.map(c => c[1]), backgroundColor: '#60a5fa', borderRadius: 8 }]
-            },
+            labels: productosTop.map(p => p[0]),
+            datasets: [{ label: 'Cant. Vendida', data: productosTop.map(p => p[1]), backgroundColor: '#60a5fa', borderRadius: 8 }]
+        },
         options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
     });
 }
