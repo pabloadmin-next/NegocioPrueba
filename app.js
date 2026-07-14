@@ -1,4 +1,4 @@
-const urlAppsScript = "https://script.google.com/macros/s/AKfycbzini5YjH1lstyXE7G1UlliwX6gL1Bg48c67eizCD9sUJivUa_gi0wt0kf7zpknrV0kRQ/exec"; 
+const urlAppsScript = "https://script.google.com/macros/s/AKfycbzFGIB_P1HhwB4JWfORPA4NZXb9SPU-olmwVfQ_Mb9qoOryy5MI6JKG4kbKzeJ0vH7mYA/exec"; 
 
 
 const USUARIOS = {
@@ -15,6 +15,7 @@ let chartClientes = null;
 let productosBase = [];
 let html5QrCode = null;
 let carrito = [];
+let escaneoDestinoModal = false;
 
 document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("tipoMovimiento").addEventListener("change", alternarTipoOperacion);
@@ -176,16 +177,29 @@ function detenerEscaneo() {
     }
 }
 
+// CORRECCIÓN en el procesamiento del código escaneado
 function procesarCodigoEscaneado(codigo) {
     const buscado = productosBase.find(p => String(p.codigo).trim() === String(codigo).trim());
+    
     if (buscado) {
-        document.getElementById("productoInput").value = buscado.producto;
-        document.getElementById("precioInput").value = buscado.precio;
-        mostrarToast(`Encontrado: ${buscado.producto}`);
+        if (escaneoDestinoModal) {
+            document.getElementById("modalCodigoInput").value = buscado.codigo;
+            document.getElementById("modalDescripcionInput").value = buscado.producto;
+            document.getElementById("modalPrecioInput").value = buscado.precio;
+            escaneoDestinoModal = false;
+        } else {
+            document.getElementById("productoInput").value = buscado.producto;
+            document.getElementById("precioInput").value = buscado.precio;
+            mostrarToast(`Encontrado: ${buscado.producto}`);
+        }
     } else {
-        document.getElementById("productoInput").value = `Código: ${codigo}`;
-        document.getElementById("precioInput").value = "";
-        mostrarToast("Producto nuevo. Ingresá precio manualmente.", "error");
+        // SI NO EXISTE: Abre la ventana emergente
+        if (escaneoDestinoModal) {
+            document.getElementById("modalCodigoInput").value = codigo;
+            escaneoDestinoModal = false;
+        } else {
+            abrirModalProducto(codigo);
+        }
     }
 }
 
@@ -439,4 +453,29 @@ function renderizarDatosAdmin() {
 
 function formatPesos(num) {
     return '$' + num.toLocaleString('es-AR', { minimumFractionDigits: 0 });
+}
+// CORRECCIÓN en el procesamiento del código escaneado
+function procesarCodigoEscaneado(codigo) {
+    const buscado = productosBase.find(p => String(p.codigo).trim() === String(codigo).trim());
+    
+    if (buscado) {
+        if (escaneoDestinoModal) {
+            document.getElementById("modalCodigoInput").value = buscado.codigo;
+            document.getElementById("modalDescripcionInput").value = buscado.producto;
+            document.getElementById("modalPrecioInput").value = buscado.precio;
+            escaneoDestinoModal = false;
+        } else {
+            document.getElementById("productoInput").value = buscado.producto;
+            document.getElementById("precioInput").value = buscado.precio;
+            mostrarToast(`Encontrado: ${buscado.producto}`);
+        }
+    } else {
+        // SI NO EXISTE: Abre la ventana emergente
+        if (escaneoDestinoModal) {
+            document.getElementById("modalCodigoInput").value = codigo;
+            escaneoDestinoModal = false;
+        } else {
+            abrirModalProducto(codigo);
+        }
+    }
 }
