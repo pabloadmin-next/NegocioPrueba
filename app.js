@@ -190,13 +190,25 @@ function procesarCodigoEscaneado(codigo) {
 }
 
 // GESTIÓN DEL CARRITO EN TIEMPO REAL
-function agregarAlCarrito() {
-    const productoText = document.getElementById("productoInput").value.trim();
-    const precioUnitario = parseFloat(document.getElementById("precioInput").value);
-    const cantidad = parseFloat(document.getElementById("cantidadInput").value);
+// CORRECCIÓN: Añadir al carrito previniendo recarga de formulario
+function agregarAlCarrito(e) {
+    if (e) e.preventDefault(); // Evita cualquier comportamiento extraño del botón
+
+    const prodInput = document.getElementById("productoInput");
+    const precInput = document.getElementById("precioInput");
+    const cantInput = document.getElementById("cantidadInput");
+
+    if (!prodInput || !precInput || !cantInput) {
+        mostrarToast("Error al cargar los campos de entrada.", "error");
+        return;
+    }
+
+    const productoText = prodInput.value.trim();
+    const precioUnitario = parseFloat(precInput.value);
+    const cantidad = parseFloat(cantInput.value);
 
     if (!productoText || isNaN(precioUnitario) || isNaN(cantidad) || cantidad <= 0) {
-        mostrarToast("Falta el producto o el precio unitario", "error");
+        mostrarToast("Escribí un producto y asignale un precio válido.", "error");
         return;
     }
 
@@ -209,9 +221,9 @@ function agregarAlCarrito() {
         subtotal: subtotal
     });
 
-    document.getElementById("productoInput").value = "";
-    document.getElementById("precioInput").value = "";
-    document.getElementById("cantidadInput").value = "1";
+    prodInput.value = "";
+    precInput.value = "";
+    cantInput.value = "1";
 
     mostrarToast(`Sumado: ${productoText}`);
     renderizarCarrito();
@@ -272,9 +284,17 @@ function logout() {
 
 // GUARDADO FINAL
 function enviarDatos() {
-    const tipoMov = document.getElementById("tipoMovimiento").value;
-    const local = document.getElementById("localRegistro").value;
+    const tipoMovElement = document.getElementById("tipoMovimiento");
+    const localElement = document.getElementById("localRegistro");
     const btn = document.getElementById("btnGuardar");
+
+    if (!tipoMovElement || !localElement) {
+        mostrarToast("Error interno: No se encontraron selectores de movimiento/local.", "error");
+        return;
+    }
+
+    const tipoMov = tipoMovElement.value;
+    const local = localElement.value;
 
     let monto = 0;
     let tipoPago = "Efectivo";
@@ -282,20 +302,27 @@ function enviarDatos() {
 
     if (tipoMov === "VENTA") {
         if (carrito.length === 0) {
-            mostrarToast("El carrito de compras está vacío", "error");
+            mostrarToast("El carrito de compras está vacío. Sumá un producto primero.", "error");
             return;
         }
         monto = carrito.reduce((sum, item) => sum + item.subtotal, 0);
-        tipoPago = document.getElementById("tipoPagoInput").value;
+        
+        const tipoPagoElement = document.getElementById("tipoPagoInput");
+        tipoPago = tipoPagoElement ? tipoPagoElement.value : "Efectivo"; // Blindado por si no existe
+        
         detalle = carrito.map(item => {
-            const cantStr = item.cantidad % 1 === 0 ? `${item.cantidad}u` : `${item.cantidad}kg`;
+            const cantStr = item.amount % 1 === 0 ? `${item.cantidad}u` : `${item.cantidad}kg`;
             return `${cantStr} ${item.producto} ($${item.subtotal})`;
         }).join(" | ");
     } else {
-        monto = parseFloat(document.getElementById("montoGastoInput").value);
-        detalle = document.getElementById("detalleGastoInput").value.trim();
+        const montoGastoElement = document.getElementById("montoGastoInput");
+        const detalleGastoElement = document.getElementById("detalleGastoInput");
+        
+        monto = montoGastoElement ? parseFloat(montoGastoElement.value) : 0;
+        detalle = detalleGastoElement ? detalleGastoElement.value.trim() : "";
+
         if (isNaN(monto) || monto <= 0 || !detalle) {
-            mostrarToast("Faltan datos del gasto", "error");
+            mostrarToast("Faltan ingresar el monto o concepto del gasto", "error");
             return;
         }
     }
@@ -308,8 +335,8 @@ function enviarDatos() {
         monto: monto,
         tipoPago: tipoPago,
         detalle: detalle,
-        usuario: usuarioActivo.nombre,
-        local: local // Se envía el local activo correctamente
+        usuario: usuarioActivo ? usuarioActivo.nombre : "Usuario",
+        local: local
     };
 
     fetch(urlAppsScript, {
@@ -327,10 +354,10 @@ function enviarDatos() {
             if (tipoMov === "VENTA") {
                 vaciarCarrito();
             } else {
-                document.getElementById("montoGastoInput").value = "";
-                document.getElementById("detalleGastoInput").value = "";
+                if(document.getElementById("montoGastoInput")) document.getElementById("montoGastoInput").value = "";
+                if(document.getElementById("detalleGastoInput")) document.getElementById("detalleGastoInput").value = "";
             }
-            if (usuarioActivo.rol === "ADMIN") consultarPlanilla();
+            if (usuarioActivo && usuarioActivo.rol === "ADMIN") consultarPlanilla();
         } else {
             mostrarToast("Error: " + data.message, "error");
         }
