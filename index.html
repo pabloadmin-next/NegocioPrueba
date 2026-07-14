@@ -3,16 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Control Económico Clay</title>
+  <title>Control Económico Multi-Local</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="text-slate-800 antialiased theme-venta">
 
   <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4"></div>
 
-  <!-- LOGIN CLAY -->
+  <!-- LOGIN -->
   <div id="loginSection" class="fixed inset-0 bg-slate-900/20 backdrop-blur-md flex items-center justify-center p-4 z-40">
     <div class="clay-card p-8 max-w-sm w-full text-center animate-slide-in">
       <span class="text-4xl block mb-2">🔒</span>
@@ -26,7 +27,7 @@
     </div>
   </div>
 
-  <!-- DASHBOARD PRINCIPAL -->
+  <!-- DASHBOARD -->
   <div id="mainDashboard" class="min-h-screen flex flex-col hidden">
     <!-- BARRA SUPERIOR -->
     <header class="bg-white/60 backdrop-blur-md px-6 py-4 flex justify-between items-center sticky top-0 z-30 border-b border-white/40">
@@ -49,7 +50,17 @@
     <!-- CUERPO PRINCIPAL -->
     <main class="flex-1 p-4 md:p-6 max-w-7xl w-full mx-auto space-y-6">
       
-      <!-- INDICADORES DIARIOS (ADMIN) -->
+      <!-- SELECCIÓN DE VISTA DE LOCAL (SÓLO ADMIN) -->
+      <section id="adminLocalSelector" class="hidden flex items-center justify-between clay-card p-4">
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">📍 Ver estadísticas de:</span>
+        <select id="filtroLocalAdmin" class="clay-input px-4 py-2 text-xs font-bold text-indigo-600 outline-none w-48">
+          <option value="Ambos">✨ Ambos Locales</option>
+          <option value="Local 1">🏪 Local 1</option>
+          <option value="Local 2">🏪 Local 2</option>
+        </select>
+      </section>
+
+      <!-- INDICADORES DIARIOS (SÓLO ADMIN) -->
       <section id="adminKPIs" class="grid grid-cols-2 lg:grid-cols-4 gap-4 hidden">
         <div class="clay-card p-5">
           <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ventas Hoy</p>
@@ -64,12 +75,11 @@
           <h3 id="txtCajaEfectivo" class="text-xl font-black text-sky-600 mt-1">$0</h3>
         </div>
         <div class="clay-card p-5">
-          <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Caja Transf.</p>
-          <h3 id="txtCajaTransf" class="text-xl font-black text-violet-600 mt-1">$0</h3>
+          <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Caja Transf. / Tarj.</p>
+          <h3 id="txtCajaDigital" class="text-xl font-black text-violet-600 mt-1">$0</h3>
         </div>
       </section>
 
-      <!-- SECCIÓN DE TRABAJO -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         <!-- FORMULARIO DE CARGA -->
@@ -80,6 +90,15 @@
             </h2>
             
             <div class="space-y-4">
+              <!-- NUEVO: SELECTOR DE LOCAL PARA EL EMPLEADO -->
+              <div>
+                <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Local actual</label>
+                <select id="localRegistro" class="w-full clay-input px-3 py-2.5 text-sm outline-none font-semibold text-indigo-700">
+                  <option value="Local 1">🏪 Local 1</option>
+                  <option value="Local 2">🏪 Local 2</option>
+                </select>
+              </div>
+
               <div>
                 <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Tipo de Movimiento</label>
                 <select id="tipoMovimiento" class="w-full clay-input px-3 py-2.5 text-sm outline-none">
@@ -93,17 +112,33 @@
                 <input type="number" id="montoInput" inputmode="decimal" placeholder="0" class="w-full clay-input px-3 py-2.5 text-sm outline-none">
               </div>
 
+              <!-- NUEVO: SOPORTE PARA TARJETA -->
               <div>
                 <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Método de Pago</label>
                 <select id="tipoPagoInput" class="w-full clay-input px-3 py-2.5 text-sm outline-none">
                   <option value="Efectivo">Efectivo</option>
                   <option value="Transferencia">Transferencia</option>
+                  <option value="Tarjeta">💳 Tarjeta (Débito/Crédito)</option>
                 </select>
               </div>
 
+              <!-- CAMPO DE DETALLE CON ESCÁNER -->
               <div>
-                <label id="lblDetalle" class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Nombre del Cliente</label>
-                <input type="text" id="detalleInput" placeholder="Nombre completo" class="w-full clay-input px-3 py-2.5 text-sm outline-none">
+                <div class="flex justify-between items-center mb-1">
+                  <label id="lblDetalle" class="block text-[10px] font-bold uppercase text-slate-400">Nombre del Cliente / Producto</label>
+                  <button id="btnEscanear" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 transition-all">
+                    📷 Escanear Código
+                  </button>
+                </div>
+                <input type="text" id="detalleInput" placeholder="Nombre completo o producto" class="w-full clay-input px-3 py-2.5 text-sm outline-none">
+              </div>
+
+              <!-- CÁMARA RECTANGULAR -->
+              <div id="scannerContainer" class="hidden overflow-hidden rounded-2xl border-2 border-indigo-200 bg-black/5 p-2 animate-slide-in">
+                <div id="reader" class="w-full"></div>
+                <button id="btnCerrarScanner" class="w-full mt-2 bg-rose-500 text-white font-bold py-2 rounded-xl text-xs active:scale-95 transition-all">
+                  ❌ Cancelar Escaneo
+                </button>
               </div>
             </div>
           </div>
@@ -113,7 +148,7 @@
           </button>
         </div>
 
-        <!-- RECUADROS EXCLUSIVOS DE ADMIN: GRÁFICOS Y BALANCE -->
+        <!-- PANEL DE ADMINS -->
         <div id="adminCharts" class="lg:col-span-2 space-y-6 hidden">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="clay-card p-5 h-64 flex flex-col">
@@ -127,7 +162,7 @@
             </div>
           </div>
 
-          <!-- NUEVO: SECCIÓN DE BALANCE MENSUAL -->
+          <!-- BALANCE MENSUAL DINÁMICO -->
           <div class="clay-card p-6 bg-gradient-to-br from-white/90 to-slate-50/50">
             <h3 class="text-xs font-bold text-slate-400 mb-4 uppercase tracking-wider flex items-center gap-2">
               <span>📅</span> Balance y Cierre Mensual (Últimos 30 días)

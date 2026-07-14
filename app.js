@@ -1,16 +1,19 @@
 const urlAppsScript = "https://script.google.com/macros/s/AKfycbwB8uu1vIJquglN5a3sP3SLsXdlhmhpKYp5X9hQpR18THLW4R94PkCfDg2W7e5K1UIeNg/exec"; 
+ 
 
-// SISTEMA DE USUARIOS POR CONTRASEÑA (Podés añadir los que quieras)
 const USUARIOS = {
     "admin1": { nombre: "Carlos (Admin)", rol: "ADMIN", clave: "admin2026" },
     "admin2": { nombre: "Ana (Admin)", rol: "ADMIN", clave: "ana99" },
     "empleado1": { nombre: "Juan", rol: "EMPLEADO", clave: "juan123" },
-    "empleado2": { nombre: "Layla", rol: "EMPLEADO", clave: "layla456" }
+    "empleado2": { nombre: "Sofía", rol: "EMPLEADO", clave: "sofia456" }
 };
 
 let usuarioActivo = null; 
+let datosLocalesCrudos = null; // Guardará la respuesta consolidada de Google Sheets
 let chartDiario = null;
 let chartClientes = null;
+let productosBase = [];
+let html5QrCode = null;
 
 document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("tipoMovimiento").addEventListener("change", (e) => {
@@ -23,16 +26,23 @@ document.addEventListener("DOMContentLoaded", () => {
             input.placeholder = "Ej: Pago de limpieza";
             body.classList.remove("theme-venta");
             body.classList.add("theme-gasto");
+            document.getElementById("btnEscanear").classList.add("hidden");
         } else {
-            lbl.innerText = "Nombre del Cliente";
-            input.placeholder = "Ej: Juan Pérez";
+            lbl.innerText = "Nombre del Cliente o Producto";
+            input.placeholder = "Ej: Coca-Cola 1.5L / Juan Pérez";
             body.classList.remove("theme-gasto");
             body.classList.add("theme-venta");
+            document.getElementById("btnEscanear").classList.remove("hidden");
         }
     });
 
     document.getElementById("btnGuardar").addEventListener("click", enviarDatos);
     document.getElementById("btnActualizar").addEventListener("click", consultarPlanilla);
+    document.getElementById("btnEscanear").addEventListener("click", iniciarEscaneo);
+    document.getElementById("btnCerrarScanner").addEventListener("click", detenerEscaneo);
+    
+    // Filtro dinámico para recargar gráficos al cambiar el Local
+    document.getElementById("filtroLocalAdmin").addEventListener("change", renderizarDatosAdmin);
     
     document.getElementById("passwordInput").addEventListener("keypress", (e) => {
         if(e.key === "Enter") verificarLogin();
@@ -59,18 +69,17 @@ function mostrarToast(mensaje, tipo = "success") {
     }, 3000);
 }
 
-// VERIFICACIÓN BUSCANDO EN EL OBJETO DE USUARIOS
 function verificarLogin() {
     const inputPass = document.getElementById("passwordInput").value;
     const errorMsg = document.getElementById("errorLogin");
     
-    // Buscar si alguna clave coincide
     const encontrado = Object.values(USUARIOS).find(u => u.clave === inputPass);
 
     if (encontrado) {
         usuarioActivo = encontrado;
         conectarInterfaz();
         mostrarToast(`Hola ${usuarioActivo.nombre}`);
+        descargarListaProductos();
     } else {
         errorMsg.classList.remove("hidden");
     }
@@ -85,12 +94,68 @@ function conectarInterfaz() {
     if (usuarioActivo.rol === "ADMIN") {
         document.getElementById("adminKPIs").classList.remove("hidden");
         document.getElementById("adminCharts").classList.remove("hidden");
+        document.getElementById("adminLocalSelector").classList.remove("hidden");
         document.getElementById("btnActualizar").classList.remove("hidden");
         consultarPlanilla();
     } else {
         document.getElementById("adminKPIs").classList.add("hidden");
         document.getElementById("adminCharts").classList.add("hidden");
+        document.getElementById("adminLocalSelector").classList.add("hidden");
         document.getElementById("btnActualizar").classList.add("hidden");
+    }
+}
+
+function descargarListaProductos() {
+    fetch(`${urlAppsScript}?obtenerProductos=true`)
+    .then(res => res.json())
+    .then(data => {
+        if(Array.isArray(data)) {
+            productosBase = data;
+        }
+    })
+    .catch(() => console.log("Operando en modo manual sin sincronización."));
+}
+
+function iniciarEscaneo() {
+    const scannerBox = document.getElementById("scannerContainer");
+    scannerBox.classList.remove("hidden");
+    
+    html5QrCode = new Html5Qrcode("reader");
+    const config = { fps: 15, qrbox: { width: 250, height: 120 } };
+
+    html5QrCode.start(
+        { facingMode: "environment" },
+        config,
+        (decodedText) => {
+            detenerEscaneo();
+            procesarCodigoEscaneado(decodedText);
+        },
+        () => {}
+    ).catch(() => {
+        mostrarToast("No se pudo iniciar la cámara", "error");
+        scannerBox.classList.add("hidden");
+    });
+}
+
+function detenerEscaneo() {
+    if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+            document.getElementById("scannerContainer").classList.add("hidden");
+        }).catch(() => {
+            document.getElementById("scannerContainer").classList.add("hidden");
+        });
+    }
+}
+
+function procesarCodigoEscaneado(codigo) {
+    const buscado = productosBase.find(p => String(p.codigo).trim() === String(codigo).trim());
+    if (buscado) {
+        document.getElementById("detalleInput").value = buscado.producto;
+        document.getElementById("montoInput").value = buscado.precio;
+        mostrarToast(`Producto encontrado: ${buscado.producto}`, "success");
+    } else {
+        document.getElementById("detalleInput").value = `Código: ${codigo}`;
+        mostrarToast("Código nuevo no registrado", "error");
     }
 }
 
@@ -99,6 +164,7 @@ function logout() {
     document.getElementById("passwordInput").value = "";
     document.getElementById("loginSection").classList.remove("hidden");
     document.getElementById("mainDashboard").classList.add("hidden");
+    detenerEscaneo();
 }
 
 function enviarDatos() {
@@ -106,6 +172,7 @@ function enviarDatos() {
     const monto = parseFloat(document.getElementById("montoInput").value);
     const tipoPago = document.getElementById("tipoPagoInput").value;
     const detalle = document.getElementById("detalleInput").value.trim();
+    const local = document.getElementById("localRegistro").value; // Leemos el local activo del selector
 
     if (!monto || !detalle) {
         mostrarToast("Faltan datos obligatorios", "error");
@@ -116,13 +183,13 @@ function enviarDatos() {
     btn.innerText = "⏳ Guardando...";
     btn.disabled = true;
 
-    // Enviamos el "nombre" del usuario logueado a la columna 6
     const payload = {
         operacion: tipoMov,
         monto: monto,
         tipoPago: tipoPago,
         detalle: detalle,
-        usuario: usuarioActivo.nombre 
+        usuario: usuarioActivo.nombre,
+        local: local // Enviamos el local a la nueva columna
     };
 
     fetch(urlAppsScript, {
@@ -145,7 +212,7 @@ function enviarDatos() {
         }
     })
     .catch(() => {
-        mostrarToast("Fallo de red o servidor", "error");
+        mostrarToast("Fallo de red", "error");
         btn.innerText = "Guardar Movimiento";
         btn.disabled = false;
     });
@@ -162,44 +229,68 @@ function consultarPlanilla() {
         btnAct.innerText = "🔄 Actualizar";
         if(res.error) return;
 
-        // Indicadores diarios
-        document.getElementById("txtVentasTotal").innerText = formatPesos(res.ventasDiarias.Efectivo + res.ventasDiarias.Transferencia);
-        document.getElementById("txtGastosTotal").innerText = formatPesos(res.gastosDiarios.Efectivo + res.gastosDiarios.Transferencia);
-        document.getElementById("txtCajaEfectivo").innerText = formatPesos(res.cajaNetaEfectivo);
-        document.getElementById("txtCajaTransf").innerText = formatPesos(res.cajaNetaTransferencia);
-
-        // Renderizado del Balance Mensual recibido desde Google
-        document.getElementById("mesVentas").innerText = formatPesos(res.balanceMensual.ventas);
-        document.getElementById("mesGastos").innerText = formatPesos(res.balanceMensual.gastos);
-        document.getElementById("mesNeto").innerText = formatPesos(res.balanceMensual.neto);
-
-        const ctxD = document.getElementById('chartDiario').getContext('2d');
-        if (chartDiario) chartDiario.destroy();
-        chartDiario = new Chart(ctxD, {
-            type: 'bar',
-            data: {
-                labels: ['Efectivo', 'Transferencia'],
-                datasets: [
-                    { label: 'Ingresos', data: [res.ventasDiarias.Efectivo, res.ventasDiarias.Transferencia], backgroundColor: '#2dd4bf', borderRadius: 8 },
-                    { label: 'Egresos', data: [res.gastosDiarios.Efectivo, res.gastosDiarios.Transferencia], backgroundColor: '#fb7185', borderRadius: 8 }
-                ]
-            },
-            options: { responsive: true, maintainAspectRatio: false }
-        });
-
-        const clientes = Object.entries(res.resumenClientes).sort((a,b) => b[1] - a[1]).slice(0, 5);
-        const ctxC = document.getElementById('chartClientes').getContext('2d');
-        if (chartClientes) chartClientes.destroy();
-        chartClientes = new Chart(ctxC, {
-            type: 'bar',
-            data: {
-                labels: clientes.map(c => c[0]),
-                datasets: [{ label: 'Total ($)', data: clientes.map(c => c[1]), backgroundColor: '#60a5fa', borderRadius: 8 }]
-            },
-            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
-        });
+        datosLocalesCrudos = res; // Guardamos globalmente los datos para alternar rápido
+        renderizarDatosAdmin(); // Renderiza según el local seleccionado
     })
     .catch(() => { btnAct.innerText = "🔄 Actualizar"; });
+}
+
+// NUEVO: RENDERIZACIÓN DINÁMICA DE KPIs Y GRÁFICOS
+function renderizarDatosAdmin() {
+    if (!datosLocalesCrudos) return;
+    
+    // Leemos qué local quiere inspeccionar el administrador
+    const localSeleccionado = document.getElementById("filtroLocalAdmin").value;
+    const dataLocal = datosLocalesCrudos.locales[localSeleccionado];
+
+    if (!dataLocal) return;
+
+    // Totales de Hoy (Suma de Efectivo, Transf y Tarjeta)
+    const totalVentas = dataLocal.ventas.Efectivo + dataLocal.ventas.Transferencia + dataLocal.ventas.Tarjeta;
+    const totalGastos = dataLocal.gastos.Efectivo + dataLocal.gastos.Transferencia + dataLocal.gastos.Tarjeta;
+    
+    // Neto Diario
+    const netoEfectivo = dataLocal.ventas.Efectivo - dataLocal.gastos.Efectivo;
+    const netoDigital = (dataLocal.ventas.Transferencia + dataLocal.ventas.Tarjeta) - (dataLocal.gastos.Transferencia + dataLocal.gastos.Tarjeta);
+
+    // Asignación a las tarjetas visuales
+    document.getElementById("txtVentasTotal").innerText = formatPesos(totalVentas);
+    document.getElementById("txtGastosTotal").innerText = formatPesos(totalGastos);
+    document.getElementById("txtCajaEfectivo").innerText = formatPesos(netoEfectivo);
+    document.getElementById("txtCajaDigital").innerText = formatPesos(netoDigital);
+
+    // Indicadores Mensuales
+    document.getElementById("mesVentas").innerText = formatPesos(dataLocal.balanceMes.ventas);
+    document.getElementById("mesGastos").innerText = formatPesos(dataLocal.balanceMes.gastos);
+    document.getElementById("mesNeto").innerText = formatPesos(dataLocal.balanceMes.ventas - dataLocal.balanceMes.gastos);
+
+    // Renderizado del Gráfico de Barra comparativo (Incluye Tarjeta)
+    const ctxD = document.getElementById('chartDiario').getContext('2d');
+    if (chartDiario) chartDiario.destroy();
+    chartDiario = new Chart(ctxD, {
+        type: 'bar',
+        data: {
+            labels: ['Efectivo', 'Transferencia', 'Tarjeta'],
+            datasets: [
+                { label: 'Ingresos', data: [dataLocal.ventas.Efectivo, dataLocal.ventas.Transferencia, dataLocal.ventas.Tarjeta], backgroundColor: '#2dd4bf', borderRadius: 8 },
+                { label: 'Egresos', data: [dataLocal.gastos.Efectivo, dataLocal.gastos.Transferencia, dataLocal.gastos.Tarjeta], backgroundColor: '#fb7185', borderRadius: 8 }
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    // Top Clientes (Sigue siendo global para mantener la visualización general)
+    const clientes = Object.entries(datosLocalesCrudos.resumenClientes).sort((a,b) => b[1] - a[1]).slice(0, 5);
+    const ctxC = document.getElementById('chartClientes').getContext('2d');
+    if (chartClientes) chartClientes.destroy();
+    chartClientes = new Chart(ctxC, {
+        type: 'bar',
+        data: {
+            labels: clientes.map(c => c[0]),
+            datasets: [{ label: 'Total ($)', data: clientes.map(c => c[1]), backgroundColor: '#60a5fa', borderRadius: 8 }]
+            },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+    });
 }
 
 function formatPesos(num) {
