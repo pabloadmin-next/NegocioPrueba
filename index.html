@@ -171,14 +171,6 @@
                 </button>
               </div>
 
-              <!-- ESCÁNER -->
-              <div id="scannerContainer" class="hidden overflow-hidden rounded-2xl border-2 border-indigo-200 bg-black/5 p-2 mb-4">
-                <div id="reader" class="w-full"></div>
-                <button id="btnCerrarScanner" class="w-full mt-2 bg-rose-500 text-white font-bold py-2 rounded-xl text-xs">
-                  ❌ Cancelar
-                </button>
-              </div>
-
               <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
                 <div class="md:col-span-5 relative">
                   <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Producto (Escribí para buscar)</label>
@@ -284,8 +276,8 @@
   </div>
 
   <!-- MODAL NUEVO PRODUCTO -->
-  <div id="modalNuevoProducto" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
-    <div class="clay-card p-6 max-w-sm w-full space-y-4 animate-slide-in bg-white">
+  <div id="modalNuevoProducto" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-40 hidden">
+    <div class="clay-card p-6 max-w-sm w-full space-y-4 bg-white relative">
       <div class="flex justify-between items-center">
         <h3 class="text-sm font-black text-slate-900 flex items-center gap-1">
           ✨ Registrar Producto
@@ -323,6 +315,20 @@
           💾 Registrar
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- CONTENEDOR FLOTANTE PARA EL ESCÁNER DE LA CÁMARA (SUPERPUESTO A TODO) -->
+  <div id="scannerContainer" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-55 hidden">
+    <div class="clay-card p-6 max-w-sm w-full bg-white border border-slate-200">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-xs font-bold text-indigo-700 uppercase tracking-wider">📷 Escanear Código</h3>
+        <button onclick="detenerEscaneo()" class="text-slate-400 hover:text-slate-600 text-sm">❌</button>
+      </div>
+      <div id="reader" class="w-full overflow-hidden rounded-2xl border border-slate-100"></div>
+      <button onclick="detenerEscaneo()" class="w-full mt-4 bg-rose-500 hover:bg-rose-600 text-white font-bold py-2.5 rounded-xl text-xs transition-all">
+        Cancelar Escaneo
+      </button>
     </div>
   </div>
 

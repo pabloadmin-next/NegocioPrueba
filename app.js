@@ -23,7 +23,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("btnGuardar").addEventListener("click", enviarDatos);
     document.getElementById("btnActualizar").addEventListener("click", consultarPlanilla);
     document.getElementById("btnEscanear").addEventListener("click", iniciarEscaneo);
-    document.getElementById("btnCerrarScanner").addEventListener("click", detenerEscaneo);
     document.getElementById("btnAgregarCarrito").addEventListener("click", agregarAlCarrito);
     
     document.getElementById("productoInput").addEventListener("input", buscarProductosEnBase);
@@ -79,11 +78,9 @@ function verificarLogin() {
         errorMsg.classList.add("hidden");
 
         if (usuarioActivo.rol === "ADMIN") {
-            // Admin ingresa directo
             conectarInterfaz();
             mostrarToast(`Bienvenido ${usuarioActivo.nombre}`);
         } else {
-            // Empleado tiene que elegir su local en el Paso 2
             document.getElementById("loginPaso1").classList.add("hidden");
             document.getElementById("loginPaso2").classList.remove("hidden");
         }
@@ -92,14 +89,12 @@ function verificarLogin() {
     }
 }
 
-// Entrada confirmada para empleados
 function confirmarLocalEmpleado() {
     const localSeleccionado = document.getElementById("loginLocalSelect").value;
     
-    // Fijamos el local seleccionado en el POS y lo deshabilitamos
     const selectorLocal = document.getElementById("localRegistro");
     selectorLocal.value = localSeleccionado;
-    selectorLocal.disabled = true; // Se pone gris y bloqueado
+    selectorLocal.disabled = true; 
 
     conectarInterfaz();
     mostrarToast(`Entraste a ${localSeleccionado} como ${usuarioActivo.nombre}`);
@@ -110,7 +105,6 @@ function conectarInterfaz() {
     document.getElementById("mainDashboard").classList.remove("hidden");
     document.getElementById("badgeRol").innerText = `${usuarioActivo.nombre}`;
 
-    // Descarga automática de productos de fondo para empleados y administradores
     descargarListaProductos();
 
     if (usuarioActivo.rol === "ADMIN") {
@@ -120,7 +114,6 @@ function conectarInterfaz() {
         document.getElementById("btnActualizar").classList.remove("hidden");
         document.getElementById("btnCrearProductoManual").classList.remove("hidden");
         
-        // El administrador sí puede seleccionar o cambiar locales
         document.getElementById("localRegistro").disabled = false;
 
         consultarPlanilla();
@@ -137,7 +130,7 @@ function descargarListaProductos() {
     fetch(`${urlAppsScript}?obtenerProductos=true`)
     .then(res => res.json())
     .then(data => {
-        if(Array.isArray(data)) {
+        if(data && Array.isArray(data)) {
             productosBase = data;
             console.log("Productos sincronizados:", productosBase.length);
         }
@@ -204,6 +197,8 @@ function detenerEscaneo() {
         }).catch(() => {
             document.getElementById("scannerContainer").classList.add("hidden");
         });
+    } else {
+        document.getElementById("scannerContainer").classList.add("hidden");
     }
 }
 
@@ -222,12 +217,15 @@ function procesarCodigoEscaneado(codigo) {
             mostrarToast(`Encontrado: ${buscado.producto}`);
         }
     } else {
-        // SI NO EXISTE: Abre de forma limpia la ventana de creación
+        // SI NO EXISTE EN LA BASE DE DATOS
         if (escaneoDestinoModal) {
             document.getElementById("modalCodigoInput").value = codigo;
             escaneoDestinoModal = false;
         } else {
-            abrirModalProducto(codigo);
+            // No lo abrimos directo para evitar sorpresas molestas, primero avisamos
+            if (confirm(`El producto con código "${codigo}" no existe.\n\n¿Querés registrarlo en la base de datos ahora?`)) {
+                abrirModalProducto(codigo);
+            }
         }
     }
 }
@@ -284,7 +282,6 @@ function guardarNuevoProductoBD() {
         if (data.status === "success") {
             mostrarToast("¡Producto guardado en la base!");
             
-            // Si el rol es admin, solo limpia. Si es empleado, se lo monta en los inputs
             if(usuarioActivo.rol !== "ADMIN") {
                 document.getElementById("productoInput").value = descripcion;
                 document.getElementById("precioInput").value = precio;
@@ -455,7 +452,6 @@ function enviarDatos() {
                 document.getElementById("detalleGastoInput").value = "";
             }
             
-            // Se actualizan los productos del backend de fondo por si hubo modificaciones
             descargarListaProductos();
 
             if (usuarioActivo.rol === "ADMIN") consultarPlanilla();
