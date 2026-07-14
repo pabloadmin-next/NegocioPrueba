@@ -1,4 +1,5 @@
 const urlAppsScript = "https://script.google.com/macros/s/AKfycbzFGIB_P1HhwB4JWfORPA4NZXb9SPU-olmwVfQ_Mb9qoOryy5MI6JKG4kbKzeJ0vH7mYA/exec"; 
+// REEMPLAZÁ CON TU URL CORRECTA DE APPS SCRIPT
 
 
 const USUARIOS = {
@@ -25,9 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("btnCerrarScanner").addEventListener("click", detenerEscaneo);
     document.getElementById("btnAgregarCarrito").addEventListener("click", agregarAlCarrito);
     
-    // Buscador interactivo de productos de la planilla
     document.getElementById("productoInput").addEventListener("input", buscarProductosEnBase);
-    
     document.getElementById("filtroLocalAdmin").addEventListener("change", renderizarDatosAdmin);
     
     document.getElementById("passwordInput").addEventListener("keypress", (e) => {
@@ -69,6 +68,7 @@ function mostrarToast(mensaje, tipo = "success") {
     }, 3000);
 }
 
+// LOGIN DINÁMICO SEGÚN ROL
 function verificarLogin() {
     const inputPass = document.getElementById("passwordInput").value;
     const errorMsg = document.getElementById("errorLogin");
@@ -76,30 +76,60 @@ function verificarLogin() {
 
     if (encontrado) {
         usuarioActivo = encontrado;
-        conectarInterfaz();
-        mostrarToast(`Bienvenido ${usuarioActivo.nombre}`);
-        descargarListaProductos();
+        errorMsg.classList.add("hidden");
+
+        if (usuarioActivo.rol === "ADMIN") {
+            // Admin ingresa directo
+            conectarInterfaz();
+            mostrarToast(`Bienvenido ${usuarioActivo.nombre}`);
+        } else {
+            // Empleado tiene que elegir su local en el Paso 2
+            document.getElementById("loginPaso1").classList.add("hidden");
+            document.getElementById("loginPaso2").classList.remove("hidden");
+        }
     } else {
         errorMsg.classList.remove("hidden");
     }
 }
 
+// Entrada confirmada para empleados
+function confirmarLocalEmpleado() {
+    const localSeleccionado = document.getElementById("loginLocalSelect").value;
+    
+    // Fijamos el local seleccionado en el POS y lo deshabilitamos
+    const selectorLocal = document.getElementById("localRegistro");
+    selectorLocal.value = localSeleccionado;
+    selectorLocal.disabled = true; // Se pone gris y bloqueado
+
+    conectarInterfaz();
+    mostrarToast(`Entraste a ${localSeleccionado} como ${usuarioActivo.nombre}`);
+}
+
 function conectarInterfaz() {
     document.getElementById("loginSection").classList.add("hidden");
     document.getElementById("mainDashboard").classList.remove("hidden");
-    document.getElementById("badgeRol").innerText = usuarioActivo.nombre;
+    document.getElementById("badgeRol").innerText = `${usuarioActivo.nombre}`;
+
+    // Descarga automática de productos de fondo para empleados y administradores
+    descargarListaProductos();
 
     if (usuarioActivo.rol === "ADMIN") {
         document.getElementById("adminKPIs").classList.remove("hidden");
         document.getElementById("adminCharts").classList.remove("hidden");
         document.getElementById("adminLocalSelector").classList.remove("hidden");
         document.getElementById("btnActualizar").classList.remove("hidden");
+        document.getElementById("btnCrearProductoManual").classList.remove("hidden");
+        
+        // El administrador sí puede seleccionar o cambiar locales
+        document.getElementById("localRegistro").disabled = false;
+
         consultarPlanilla();
     } else {
         document.getElementById("adminKPIs").classList.add("hidden");
         document.getElementById("adminCharts").classList.add("hidden");
         document.getElementById("adminLocalSelector").classList.add("hidden");
         document.getElementById("btnActualizar").classList.add("hidden");
+        document.getElementById("btnCrearProductoManual").classList.add("hidden");
     }
 }
 
@@ -112,7 +142,7 @@ function descargarListaProductos() {
             console.log("Productos sincronizados:", productosBase.length);
         }
     })
-    .catch(() => console.log("Operando sin sincronización de productos."));
+    .catch(() => console.log("Sincronización fallida. Usando caché."));
 }
 
 function buscarProductosEnBase(e) {
@@ -177,7 +207,6 @@ function detenerEscaneo() {
     }
 }
 
-// CORRECCIÓN en el procesamiento del código escaneado
 function procesarCodigoEscaneado(codigo) {
     const buscado = productosBase.find(p => String(p.codigo).trim() === String(codigo).trim());
     
@@ -193,7 +222,7 @@ function procesarCodigoEscaneado(codigo) {
             mostrarToast(`Encontrado: ${buscado.producto}`);
         }
     } else {
-        // SI NO EXISTE: Abre la ventana emergente
+        // SI NO EXISTE: Abre de forma limpia la ventana de creación
         if (escaneoDestinoModal) {
             document.getElementById("modalCodigoInput").value = codigo;
             escaneoDestinoModal = false;
@@ -203,26 +232,90 @@ function procesarCodigoEscaneado(codigo) {
     }
 }
 
-// GESTIÓN DEL CARRITO EN TIEMPO REAL
-// CORRECCIÓN: Añadir al carrito previniendo recarga de formulario
+function abrirModalProducto(codigoPreestablecido = "") {
+    document.getElementById("modalCodigoInput").value = codigoPreestablecido;
+    document.getElementById("modalDescripcionInput").value = "";
+    document.getElementById("modalPrecioInput").value = "";
+    document.getElementById("modalNuevoProducto").classList.remove("hidden");
+}
+
+function cerrarModalProducto() {
+    document.getElementById("modalNuevoProducto").classList.add("hidden");
+    escaneoDestinoModal = false;
+}
+
+function escanearEnModal() {
+    escaneoDestinoModal = true;
+    iniciarEscaneo();
+}
+
+function guardarNuevoProductoBD() {
+    const codigo = document.getElementById("modalCodigoInput").value.trim();
+    const descripcion = document.getElementById("modalDescripcionInput").value.trim();
+    const precio = parseFloat(document.getElementById("modalPrecioInput").value);
+    const btn = document.getElementById("btnGuardarNuevoProducto");
+
+    if (!descripcion || isNaN(precio) || precio <= 0) {
+        mostrarToast("Completá descripción y precio para continuar", "error");
+        return;
+    }
+
+    btn.innerText = "⏳ Guardando...";
+    btn.disabled = true;
+
+    const payload = {
+        operacion: "CREAR_PRODUCTO",
+        codigo: codigo,
+        producto: descripcion,
+        precio: precio
+    };
+
+    fetch(urlAppsScript, {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        btn.innerText = "💾 Registrar";
+        btn.disabled = false;
+        
+        if (data.status === "success") {
+            mostrarToast("¡Producto guardado en la base!");
+            
+            // Si el rol es admin, solo limpia. Si es empleado, se lo monta en los inputs
+            if(usuarioActivo.rol !== "ADMIN") {
+                document.getElementById("productoInput").value = descripcion;
+                document.getElementById("precioInput").value = precio;
+            }
+            
+            descargarListaProductos();
+            cerrarModalProducto();
+        } else {
+            mostrarToast("Error: " + data.message, "error");
+        }
+    })
+    .catch(() => {
+        mostrarToast("Error de red al guardar", "error");
+        btn.innerText = "💾 Registrar";
+        btn.disabled = false;
+    });
+}
+
 function agregarAlCarrito(e) {
-    if (e) e.preventDefault(); // Evita cualquier comportamiento extraño del botón
+    if (e) e.preventDefault();
 
     const prodInput = document.getElementById("productoInput");
     const precInput = document.getElementById("precioInput");
     const cantInput = document.getElementById("cantidadInput");
-
-    if (!prodInput || !precInput || !cantInput) {
-        mostrarToast("Error al cargar los campos de entrada.", "error");
-        return;
-    }
 
     const productoText = prodInput.value.trim();
     const precioUnitario = parseFloat(precInput.value);
     const cantidad = parseFloat(cantInput.value);
 
     if (!productoText || isNaN(precioUnitario) || isNaN(cantidad) || cantidad <= 0) {
-        mostrarToast("Escribí un producto y asignale un precio válido.", "error");
+        mostrarToast("Escribí un producto y precio unitario válido.", "error");
         return;
     }
 
@@ -291,21 +384,17 @@ function renderizarCarrito() {
 function logout() {
     usuarioActivo = null;
     document.getElementById("passwordInput").value = "";
+    document.getElementById("loginPaso1").classList.remove("hidden");
+    document.getElementById("loginPaso2").classList.add("hidden");
     document.getElementById("loginSection").classList.remove("hidden");
     document.getElementById("mainDashboard").classList.add("hidden");
     detenerEscaneo();
 }
 
-// GUARDADO FINAL
 function enviarDatos() {
     const tipoMovElement = document.getElementById("tipoMovimiento");
     const localElement = document.getElementById("localRegistro");
     const btn = document.getElementById("btnGuardar");
-
-    if (!tipoMovElement || !localElement) {
-        mostrarToast("Error interno: No se encontraron selectores de movimiento/local.", "error");
-        return;
-    }
 
     const tipoMov = tipoMovElement.value;
     const local = localElement.value;
@@ -316,27 +405,21 @@ function enviarDatos() {
 
     if (tipoMov === "VENTA") {
         if (carrito.length === 0) {
-            mostrarToast("El carrito de compras está vacío. Sumá un producto primero.", "error");
+            mostrarToast("El carrito de compras está vacío.", "error");
             return;
         }
         monto = carrito.reduce((sum, item) => sum + item.subtotal, 0);
-        
-        const tipoPagoElement = document.getElementById("tipoPagoInput");
-        tipoPago = tipoPagoElement ? tipoPagoElement.value : "Efectivo"; // Blindado por si no existe
-        
+        tipoPago = document.getElementById("tipoPagoInput").value;
         detalle = carrito.map(item => {
-            const cantStr = item.amount % 1 === 0 ? `${item.cantidad}u` : `${item.cantidad}kg`;
+            const cantStr = item.cantidad % 1 === 0 ? `${item.cantidad}u` : `${item.cantidad}kg`;
             return `${cantStr} ${item.producto} ($${item.subtotal})`;
         }).join(" | ");
     } else {
-        const montoGastoElement = document.getElementById("montoGastoInput");
-        const detalleGastoElement = document.getElementById("detalleGastoInput");
-        
-        monto = montoGastoElement ? parseFloat(montoGastoElement.value) : 0;
-        detalle = detalleGastoElement ? detalleGastoElement.value.trim() : "";
+        monto = parseFloat(document.getElementById("montoGastoInput").value);
+        detalle = document.getElementById("detalleGastoInput").value.trim();
 
         if (isNaN(monto) || monto <= 0 || !detalle) {
-            mostrarToast("Faltan ingresar el monto o concepto del gasto", "error");
+            mostrarToast("Faltan datos del gasto.", "error");
             return;
         }
     }
@@ -349,7 +432,7 @@ function enviarDatos() {
         monto: monto,
         tipoPago: tipoPago,
         detalle: detalle,
-        usuario: usuarioActivo ? usuarioActivo.nombre : "Usuario",
+        usuario: usuarioActivo.nombre,
         local: local
     };
 
@@ -368,10 +451,14 @@ function enviarDatos() {
             if (tipoMov === "VENTA") {
                 vaciarCarrito();
             } else {
-                if(document.getElementById("montoGastoInput")) document.getElementById("montoGastoInput").value = "";
-                if(document.getElementById("detalleGastoInput")) document.getElementById("detalleGastoInput").value = "";
+                document.getElementById("montoGastoInput").value = "";
+                document.getElementById("detalleGastoInput").value = "";
             }
-            if (usuarioActivo && usuarioActivo.rol === "ADMIN") consultarPlanilla();
+            
+            // Se actualizan los productos del backend de fondo por si hubo modificaciones
+            descargarListaProductos();
+
+            if (usuarioActivo.rol === "ADMIN") consultarPlanilla();
         } else {
             mostrarToast("Error: " + data.message, "error");
         }
@@ -422,7 +509,6 @@ function renderizarDatosAdmin() {
     document.getElementById("mesGastos").innerText = formatPesos(dataLocal.balanceMes.gastos);
     document.getElementById("mesNeto").innerText = formatPesos(dataLocal.balanceMes.ventas - dataLocal.balanceMes.gastos);
 
-    // Gráfico de Ventas vs Gastos
     const ctxD = document.getElementById('chartDiario').getContext('2d');
     if (chartDiario) chartDiario.destroy();
     chartDiario = new Chart(ctxD, {
@@ -437,7 +523,6 @@ function renderizarDatosAdmin() {
         options: { responsive: true, maintainAspectRatio: false }
     });
 
-    // NUEVO GRÁFICO: TOP PRODUCTOS MÁS VENDIDOS HOY
     const productosTop = Object.entries(datosLocalesCrudos.topProductos).sort((a,b) => b[1] - a[1]).slice(0, 5);
     const ctxC = document.getElementById('chartClientes').getContext('2d');
     if (chartClientes) chartClientes.destroy();
@@ -453,29 +538,4 @@ function renderizarDatosAdmin() {
 
 function formatPesos(num) {
     return '$' + num.toLocaleString('es-AR', { minimumFractionDigits: 0 });
-}
-// CORRECCIÓN en el procesamiento del código escaneado
-function procesarCodigoEscaneado(codigo) {
-    const buscado = productosBase.find(p => String(p.codigo).trim() === String(codigo).trim());
-    
-    if (buscado) {
-        if (escaneoDestinoModal) {
-            document.getElementById("modalCodigoInput").value = buscado.codigo;
-            document.getElementById("modalDescripcionInput").value = buscado.producto;
-            document.getElementById("modalPrecioInput").value = buscado.precio;
-            escaneoDestinoModal = false;
-        } else {
-            document.getElementById("productoInput").value = buscado.producto;
-            document.getElementById("precioInput").value = buscado.precio;
-            mostrarToast(`Encontrado: ${buscado.producto}`);
-        }
-    } else {
-        // SI NO EXISTE: Abre la ventana emergente
-        if (escaneoDestinoModal) {
-            document.getElementById("modalCodigoInput").value = codigo;
-            escaneoDestinoModal = false;
-        } else {
-            abrirModalProducto(codigo);
-        }
-    }
 }

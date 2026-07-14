@@ -25,22 +25,46 @@
       border-color: #6366f1;
       box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
     }
+    .clay-input:disabled {
+      background: #f1f5f9;
+      color: #94a3b8;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body class="bg-emerald-50/30 text-slate-800 antialiased min-h-screen">
 
   <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4"></div>
 
-  <!-- LOGIN -->
+  <!-- LOGIN MULTI-PASO -->
   <div id="loginSection" class="fixed inset-0 bg-slate-900/20 backdrop-blur-md flex items-center justify-center p-4 z-40">
     <div class="clay-card p-8 max-w-sm w-full text-center">
       <span class="text-4xl block mb-2">🔒</span>
       <h2 class="text-xl font-bold text-slate-900 mb-1">Acceso al Sistema</h2>
       <p class="text-xs text-slate-400 mb-6">Ingresa tu contraseña</p>
-      <input type="password" id="passwordInput" placeholder="••••" class="w-full text-center clay-input px-4 py-3 text-lg mb-4 tracking-widest outline-none">
-      <button onclick="verificarLogin()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-2xl shadow-lg transition-all">
-        Ingresar
-      </button>
+      
+      <!-- Paso 1: Contraseña -->
+      <div id="loginPaso1">
+        <input type="password" id="passwordInput" placeholder="••••" class="w-full text-center clay-input px-4 py-3 text-lg mb-4 tracking-widest outline-none">
+        <button onclick="verificarLogin()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-2xl shadow-lg transition-all">
+          Siguiente
+        </button>
+      </div>
+
+      <!-- Paso 2: Selección de Local (Solo Empleados) -->
+      <div id="loginPaso2" class="hidden text-left space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-500 mb-1">Selecciona tu Local de Trabajo:</label>
+          <select id="loginLocalSelect" class="w-full clay-input px-3 py-3 text-xs outline-none font-bold text-indigo-700">
+            <option value="Local 1">🏪 Local 1</option>
+            <option value="Local 2">🏪 Local 2</option>
+          </select>
+        </div>
+        <button onclick="confirmarLocalEmpleado()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-2xl shadow-lg transition-all text-sm">
+          Confirmar y Entrar
+        </button>
+      </div>
+      
       <p id="errorLogin" class="text-rose-500 text-xs mt-3 hidden font-medium">⚠️ Contraseña incorrecta</p>
     </div>
   </div>
@@ -56,6 +80,10 @@
         </h1>
       </div>
       <div class="flex items-center space-x-2">
+        <!-- BOTÓN AGREGAR PRODUCTO MANUAL (SOLO ADMIN) -->
+        <button id="btnCrearProductoManual" onclick="abrirModalProducto('')" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-sm transition-all hidden">
+          ✨ Crear Producto
+        </button>
         <button id="btnActualizar" class="bg-white text-slate-700 font-bold px-4 py-2 rounded-xl text-xs shadow-sm border border-slate-100 active:scale-95 transition-all hidden">
           🔄 Actualizar
         </button>
@@ -99,7 +127,7 @@
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <!-- SECCIÓN IZQUIERDA: REGISTRO / CARGA (2 COLUMNAS DE ANCHO) -->
+        <!-- SECCIÓN IZQUIERDA: REGISTRO -->
         <div class="lg:col-span-2 clay-card p-6 flex flex-col justify-between space-y-6">
           <div>
             <div class="flex justify-between items-center mb-4">
@@ -152,26 +180,22 @@
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                <!-- Entrada Producto -->
                 <div class="md:col-span-5 relative">
-                  <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Producto (Escribí para buscar o manual)</label>
-                  <input type="text" id="productoInput" placeholder="Ej: sal fina, zapallo..." class="w-full clay-input px-3 py-2 text-xs outline-none" autocomplete="off">
+                  <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Producto (Escribí para buscar)</label>
+                  <input type="text" id="productoInput" placeholder="Ej: sal fina..." class="w-full clay-input px-3 py-2 text-xs outline-none" autocomplete="off">
                   <div id="sugerenciasList" class="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-40 overflow-y-auto z-50 hidden"></div>
                 </div>
 
-                <!-- Precio -->
                 <div class="md:col-span-3">
                   <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Monto ($)</label>
                   <input type="number" id="precioInput" inputmode="decimal" placeholder="0" class="w-full clay-input px-3 py-2 text-xs outline-none">
                 </div>
 
-                <!-- Cantidad -->
                 <div class="md:col-span-2">
                   <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Cant / Kg</label>
                   <input type="number" id="cantidadInput" inputmode="decimal" step="any" value="1" class="w-full clay-input px-3 py-2 text-xs text-center outline-none">
                 </div>
 
-                <!-- Botón Añadir -->
                 <div class="md:col-span-2">
                   <button id="btnAgregarCarrito" type="button" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 rounded-xl text-xs transition-all">
                     ➕ Añadir
@@ -195,7 +219,7 @@
               </div>
             </div>
 
-            <!-- CARRITO VISUAL (SÓLO PARA VENTAS) -->
+            <!-- CARRITO VISUAL -->
             <div id="seccionCarrito" class="mt-6 border-t border-slate-100 pt-4">
               <div class="flex justify-between items-center mb-3">
                 <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">🛒 Productos en Carrito</span>
@@ -204,12 +228,10 @@
                 </button>
               </div>
 
-              <!-- Lista dinámica del carrito -->
               <div class="max-h-48 overflow-y-auto space-y-2 pr-1" id="listaCarrito">
                 <p class="text-center text-xs text-slate-400 py-4 italic">El carrito está vacío. Sumá algún producto arriba.</p>
               </div>
 
-              <!-- Totalizador -->
               <div class="mt-4 flex justify-between items-center bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100/30">
                 <span class="text-xs font-bold text-indigo-700 uppercase tracking-wider">Total a Cobrar:</span>
                 <span id="totalVentaCarrito" class="text-lg font-black text-indigo-600">$0</span>
@@ -224,20 +246,18 @@
           </button>
         </div>
 
-        <!-- SECCIÓN DERECHA: PANEL ADMIN (1 COLUMNA DE ANCHO) -->
+        <!-- SECCIÓN DERECHA: PANEL ADMIN -->
         <div id="adminCharts" class="space-y-6 hidden">
           <div class="clay-card p-5 h-64 flex flex-col">
             <h3 class="text-xs font-bold text-slate-400 mb-3 text-center uppercase tracking-wider">Ventas vs Gastos</h3>
             <div class="flex-1 relative"><canvas id="chartDiario"></canvas></div>
           </div>
 
-          <!-- GRÁFICO NUEVO: TOP PRODUCTOS MÁS VENDIDOS -->
           <div class="clay-card p-5 h-64 flex flex-col">
             <h3 class="text-xs font-bold text-slate-400 mb-3 text-center uppercase tracking-wider">Top Productos Hoy</h3>
             <div class="flex-1 relative"><canvas id="chartClientes"></canvas></div>
           </div>
 
-          <!-- BALANCE MENSUAL -->
           <div class="clay-card p-5 bg-gradient-to-br from-white to-slate-50">
             <h3 class="text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider flex items-center gap-2">
               <span>📅</span> Balance Mensual (30d)
@@ -262,18 +282,18 @@
       </div>
     </main>
   </div>
-  <script src="app.js"></script>
-<!-- MODAL NUEVO PRODUCTO -->
+
+  <!-- MODAL NUEVO PRODUCTO -->
   <div id="modalNuevoProducto" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
     <div class="clay-card p-6 max-w-sm w-full space-y-4 animate-slide-in bg-white">
       <div class="flex justify-between items-center">
         <h3 class="text-sm font-black text-slate-900 flex items-center gap-1">
-          ✨ Nuevo Producto Detectado
+          ✨ Registrar Producto
         </h3>
         <button onclick="cerrarModalProducto()" class="text-slate-400 hover:text-slate-600 text-sm">❌</button>
       </div>
       
-      <p class="text-xs text-slate-400">Este producto no está en tu base de datos. Completá los campos para guardarlo.</p>
+      <p class="text-xs text-slate-400">Completá los campos del producto para guardarlo permanentemente en la base.</p>
 
       <div class="space-y-3">
         <div>
@@ -305,6 +325,7 @@
       </div>
     </div>
   </div>
-  
+
+  <script src="app.js"></script>
 </body>
 </html>
