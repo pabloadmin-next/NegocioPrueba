@@ -1,6 +1,5 @@
-const urlAppsScript = "https://script.google.com/macros/s/AKfycbzFGIB_P1HhwB4JWfORPA4NZXb9SPU-olmwVfQ_Mb9qoOryy5MI6JKG4kbKzeJ0vH7mYA/exec"; 
-// REEMPLAZÁ CON TU URL CORRECTA DE APPS SCRIPT
-
+const urlAppsScript = "https://script.google.com/macros/s/AKfycbxGbZNTA7QSt3YP6h7oETeKDAC5rBgLBebNOkTIL2lARRgBlJuaorIFU_KsTz1_B7cJ/exec"; 
+// REEMPLAZÁ CON TU URL CORRECTA DE APPS SCRIPT 
 
 const USUARIOS = {
     "admin1": { nombre: "Carlos (Admin)", rol: "ADMIN", clave: "admin2026" },
@@ -17,6 +16,7 @@ let productosBase = [];
 let html5QrCode = null;
 let carrito = [];
 let escaneoDestinoModal = false;
+let codigoTemporalEscaneado = "";
 
 document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("tipoMovimiento").addEventListener("change", alternarTipoOperacion);
@@ -140,6 +140,7 @@ function descargarListaProductos() {
 
 function buscarProductosEnBase(e) {
     const busqueda = e.target.value.toLowerCase().trim();
+    const localActual = document.getElementById("localRegistro").value;
     const desplegable = document.getElementById("sugerenciasList");
     desplegable.innerHTML = "";
 
@@ -148,9 +149,10 @@ function buscarProductosEnBase(e) {
         return;
     }
 
+    // Filtramos que coincida por nombre/código Y que corresponda al Local actual
     const coincidencias = productosBase.filter(p => 
-        p.producto.toLowerCase().includes(busqueda) || 
-        String(p.codigo).includes(busqueda)
+        (p.producto.toLowerCase().includes(busqueda) || String(p.codigo).includes(busqueda)) &&
+        String(p.local).trim() === String(localActual).trim()
     ).slice(0, 5);
 
     if (coincidencias.length === 0) {
@@ -203,13 +205,20 @@ function detenerEscaneo() {
 }
 
 function procesarCodigoEscaneado(codigo) {
-    const buscado = productosBase.find(p => String(p.codigo).trim() === String(codigo).trim());
+    const localActual = document.getElementById("localRegistro").value;
+    
+    // Buscamos que coincida el código y además pertenezca al Local correspondiente
+    const buscado = productosBase.find(p => 
+        String(p.codigo).trim() === String(codigo).trim() &&
+        String(p.local).trim() === String(localActual).trim()
+    );
     
     if (buscado) {
         if (escaneoDestinoModal) {
             document.getElementById("modalCodigoInput").value = buscado.codigo;
             document.getElementById("modalDescripcionInput").value = buscado.producto;
             document.getElementById("modalPrecioInput").value = buscado.precio;
+            document.getElementById("modalLocalSelect").value = buscado.local;
             escaneoDestinoModal = false;
         } else {
             document.getElementById("productoInput").value = buscado.producto;
@@ -217,23 +226,41 @@ function procesarCodigoEscaneado(codigo) {
             mostrarToast(`Encontrado: ${buscado.producto}`);
         }
     } else {
-        // SI NO EXISTE EN LA BASE DE DATOS
+        // SI NO EXISTE EN LA BASE DE DATOS PARA ESTE LOCAL
         if (escaneoDestinoModal) {
             document.getElementById("modalCodigoInput").value = codigo;
             escaneoDestinoModal = false;
         } else {
-            // No lo abrimos directo para evitar sorpresas molestas, primero avisamos
-            if (confirm(`El producto con código "${codigo}" no existe.\n\n¿Querés registrarlo en la base de datos ahora?`)) {
-                abrirModalProducto(codigo);
-            }
+            // Levantamos nuestro nuevo Modal Estético de Confirmación en lugar de confirm()
+            codigoTemporalEscaneado = codigo;
+            document.getElementById("confirmarMensajeTexto").innerText = `El producto con código "${codigo}" no está registrado para el ${localActual}. ¿Querés agregarlo ahora?`;
+            document.getElementById("modalConfirmacionEscaner").classList.remove("hidden");
         }
     }
 }
 
+// Botones de acción del Modal Estético de Confirmación
+function cancelarRegistroDesdeEscaner() {
+    document.getElementById("modalConfirmacionEscaner").classList.add("hidden");
+    codigoTemporalEscaneado = "";
+}
+
+function aceptarRegistroDesdeEscaner() {
+    document.getElementById("modalConfirmacionEscaner").classList.add("hidden");
+    abrirModalProducto(codigoTemporalEscaneado);
+    codigoTemporalEscaneado = "";
+}
+
 function abrirModalProducto(codigoPreestablecido = "") {
+    const localActual = document.getElementById("localRegistro").value;
+    
     document.getElementById("modalCodigoInput").value = codigoPreestablecido;
     document.getElementById("modalDescripcionInput").value = "";
     document.getElementById("modalPrecioInput").value = "";
+    
+    // Mostramos visualmente el local activo en el cartel sin opción a cambiarlo
+    document.getElementById("modalLocalDisplay").innerText = `🏪 ${localActual}`;
+
     document.getElementById("modalNuevoProducto").classList.remove("hidden");
 }
 
@@ -247,57 +274,17 @@ function escanearEnModal() {
     iniciarEscaneo();
 }
 
-function guardarNuevoProductoBD() {
-    const codigo = document.getElementById("modalCodigoInput").value.trim();
-    const descripcion = document.getElementById("modalDescripcionInput").value.trim();
-    const precio = parseFloat(document.getElementById("modalPrecioInput").value);
-    const btn = document.getElementById("btnGuardarNuevoProducto");
+function abrirModalProducto(codigoPreestablecido = "") {
+    const localActual = document.getElementById("localRegistro").value;
+    
+    document.getElementById("modalCodigoInput").value = codigoPreestablecido;
+    document.getElementById("modalDescripcionInput").value = "";
+    document.getElementById("modalPrecioInput").value = "";
+    
+    // Mostramos visualmente el local activo en el cartel sin opción a cambiarlo
+    document.getElementById("modalLocalDisplay").innerText = `🏪 ${localActual}`;
 
-    if (!descripcion || isNaN(precio) || precio <= 0) {
-        mostrarToast("Completá descripción y precio para continuar", "error");
-        return;
-    }
-
-    btn.innerText = "⏳ Guardando...";
-    btn.disabled = true;
-
-    const payload = {
-        operacion: "CREAR_PRODUCTO",
-        codigo: codigo,
-        producto: descripcion,
-        precio: precio
-    };
-
-    fetch(urlAppsScript, {
-        method: "POST",
-        mode: "cors",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(payload)
-    })
-    .then(res => res.json())
-    .then(data => {
-        btn.innerText = "💾 Registrar";
-        btn.disabled = false;
-        
-        if (data.status === "success") {
-            mostrarToast("¡Producto guardado en la base!");
-            
-            if(usuarioActivo.rol !== "ADMIN") {
-                document.getElementById("productoInput").value = descripcion;
-                document.getElementById("precioInput").value = precio;
-            }
-            
-            descargarListaProductos();
-            cerrarModalProducto();
-        } else {
-            mostrarToast("Error: " + data.message, "error");
-        }
-    })
-    .catch(() => {
-        mostrarToast("Error de red al guardar", "error");
-        btn.innerText = "💾 Registrar";
-        btn.disabled = false;
-    });
+    document.getElementById("modalNuevoProducto").classList.remove("hidden");
 }
 
 function agregarAlCarrito(e) {

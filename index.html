@@ -34,6 +34,7 @@
 </head>
 <body class="bg-emerald-50/30 text-slate-800 antialiased min-h-screen">
 
+  <!-- TOASTS -->
   <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4"></div>
 
   <!-- LOGIN MULTI-PASO -->
@@ -285,47 +286,79 @@
         <button onclick="cerrarModalProducto()" class="text-slate-400 hover:text-slate-600 text-sm">❌</button>
       </div>
       
-      <p class="text-xs text-slate-400">Completá los campos del producto para guardarlo permanentemente en la base.</p>
+      <p class="text-[11px] text-slate-400">Completá todos los campos para guardar el producto en la base de datos.</p>
 
       <div class="space-y-3">
+        <!-- LOCAL AL QUE SE ASOCIARÁ (Muestra automáticamente el seleccionado arriba) -->
+        <div class="bg-indigo-50/50 border border-indigo-100 rounded-xl p-3 flex justify-between items-center">
+          <span class="text-[10px] font-bold uppercase text-indigo-500">Local de Destino</span>
+          <span id="modalLocalDisplay" class="text-xs font-black text-indigo-700">🏪 Local 1</span>
+        </div>
+
         <div>
-          <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Código de Barras</label>
+          <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+            Código de Barras <span class="text-rose-500">*</span>
+          </label>
           <div class="flex gap-2">
-            <input type="text" id="modalCodigoInput" placeholder="Sin código" class="w-full clay-input px-3 py-2 text-xs outline-none">
-            <button onclick="escanearEnModal()" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-xs px-3 rounded-xl">📷</button>
+            <input type="text" id="modalCodigoInput" placeholder="Escribí o escaneá" class="w-full clay-input px-3 py-2 text-xs outline-none">
+            <button onclick="escanearEnModal()" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-xs px-3 rounded-xl transition-colors">📷</button>
           </div>
         </div>
 
         <div>
-          <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Descripción / Nombre</label>
-          <input type="text" id="modalDescripcionInput" placeholder="Ej: celusal Fina 500 gr" class="w-full clay-input px-3 py-2 text-xs outline-none">
+          <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+            Descripción / Nombre <span class="text-rose-500">*</span>
+          </label>
+          <input type="text" id="modalDescripcionInput" placeholder="Ej: Celusal Fina 500g" class="w-full clay-input px-3 py-2 text-xs outline-none">
         </div>
 
         <div>
-          <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Precio Unitario ($)</label>
+          <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+            Precio Unitario ($) <span class="text-rose-500">*</span>
+          </label>
           <input type="number" id="modalPrecioInput" placeholder="0" class="w-full clay-input px-3 py-2 text-xs outline-none">
         </div>
       </div>
 
       <div class="flex gap-2 pt-2">
-        <button onclick="cerrarModalProducto()" class="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded-xl text-xs transition-all">
+        <button onclick="cerrarModalProducto()" class="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-xs transition-all">
           Cancelar
         </button>
-        <button id="btnGuardarNuevoProducto" onclick="guardarNuevoProductoBD()" class="w-1/2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 rounded-xl text-xs transition-all">
+        <button id="btnGuardarNuevoProducto" onclick="guardarNuevoProductoBD()" class="w-1/2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md">
           💾 Registrar
         </button>
       </div>
     </div>
   </div>
 
-  <!-- CONTENEDOR FLOTANTE PARA EL ESCÁNER DE LA CÁMARA (SUPERPUESTO A TODO) -->
-  <div id="scannerContainer" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-55 hidden">
+  <!-- NUEVO MODAL ESTÉTICO DE CONFIRMACIÓN (REEMPLAZO DE CONFIRM) -->
+  <div id="modalConfirmacionEscaner" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+    <div class="clay-card p-6 max-w-sm w-full text-center space-y-4 bg-white border border-slate-100">
+      <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto text-xl">
+        🔍
+      </div>
+      <h3 class="text-sm font-black text-slate-950">Producto No Encontrado</h3>
+      <p id="confirmarMensajeTexto" class="text-xs text-slate-500 leading-relaxed"></p>
+      
+      <div class="flex gap-2 pt-2">
+        <button onclick="cancelarRegistroDesdeEscaner()" class="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-xs transition-all">
+          Omitir
+        </button>
+        <button onclick="aceptarRegistroDesdeEscaner()" class="w-1/2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md">
+          Sí, Registrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENEDOR FLOTANTE PARA EL ESCÁNER DE LA CÁMARA (NUEVO Z-INDEX ULTRA ALTO Z-[100]) -->
+  <div id="scannerContainer" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 z-[100] hidden">
     <div class="clay-card p-6 max-w-sm w-full bg-white border border-slate-200">
       <div class="flex justify-between items-center mb-3">
         <h3 class="text-xs font-bold text-indigo-700 uppercase tracking-wider">📷 Escanear Código</h3>
         <button onclick="detenerEscaneo()" class="text-slate-400 hover:text-slate-600 text-sm">❌</button>
       </div>
-      <div id="reader" class="w-full overflow-hidden rounded-2xl border border-slate-100"></div>
+      <div id="reader" class="w-full overflow-hidden rounded-2xl border border-slate-100 bg-black"></div>
       <button onclick="detenerEscaneo()" class="w-full mt-4 bg-rose-500 hover:bg-rose-600 text-white font-bold py-2.5 rounded-xl text-xs transition-all">
         Cancelar Escaneo
       </button>
