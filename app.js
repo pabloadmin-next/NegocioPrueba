@@ -519,3 +519,59 @@ function renderizarDatosAdmin() {
 function formatPesos(num) {
     return '$' + num.toLocaleString('es-AR', { minimumFractionDigits: 0 });
 }
+// NUEVA FUNCIÓN PARA GUARDAR PRODUCTOS EN GOOGLE SHEETS
+function guardarNuevoProductoBD() {
+    const btn = document.getElementById("btnGuardarNuevoProducto");
+    const localActual = document.getElementById("localRegistro").value;
+    
+    const codigo = document.getElementById("modalCodigoInput").value.trim();
+    const producto = document.getElementById("modalDescripcionInput").value.trim();
+    const precio = parseFloat(document.getElementById("modalPrecioInput").value);
+
+    // Validación de campos obligatorios
+    if (!codigo || !producto || isNaN(precio) || precio <= 0) {
+        mostrarToast("⚠️ Por favor completa todos los campos con valores válidos.", "error");
+        return;
+    }
+
+    // Cambiamos el estado del botón a "Cargando" para evitar doble click
+    btn.innerText = "⏳ Guardando...";
+    btn.disabled = true;
+
+    // Payload que enviaremos a Apps Script
+    const payload = {
+        operacion: "NUEVO_PRODUCTO", // Tu script de Apps Script debe identificar esta operación para insertar la fila
+        codigo: codigo,
+        producto: producto,
+        precio: precio,
+        local: localActual
+    };
+
+    fetch(urlAppsScript, {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        btn.innerText = "💾 Registrar";
+        btn.disabled = false;
+
+        if (data.status === "success") {
+            mostrarToast("✨ ¡Producto registrado y sincronizado con éxito!");
+            cerrarModalProducto();
+            
+            // Forzamos la descarga de la lista de productos actualizada
+            descargarListaProductos(); 
+        } else {
+            mostrarToast("Error al guardar: " + data.message, "error");
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        mostrarToast("Fallo de red al intentar registrar el producto.", "error");
+        btn.innerText = "💾 Registrar";
+        btn.disabled = false;
+    });
+}
