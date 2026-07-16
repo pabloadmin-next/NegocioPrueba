@@ -104,8 +104,22 @@ function conectarInterfaz() {
     document.getElementById("loginSection").classList.add("hidden");
     document.getElementById("mainDashboard").classList.remove("hidden");
     document.getElementById("badgeRol").innerText = `${usuarioActivo.nombre}`;
+    // --- NUEVO: Mostrar aviso de sincronización ---
+    const loader = document.getElementById("loaderSincronizacion");
+    if (loader) {
+        loader.classList.remove("translate-y-20", "opacity-0", "pointer-events-none");
+        loader.classList.add("translate-y-0", "opacity-100");
+    }
 
     descargarListaProductos();
+    // Ocultar el aviso automáticamente tras 4 segundos
+    setTimeout(() => {
+        if (loader) {
+            loader.classList.remove("translate-y-0", "opacity-100");
+            loader.classList.add("translate-y-20", "opacity-0", "pointer-events-none");
+        }
+    }, 4000);
+    // ----------------------------------------------
 
     if (usuarioActivo.rol === "ADMIN") {
         document.getElementById("adminKPIs").classList.remove("hidden");
