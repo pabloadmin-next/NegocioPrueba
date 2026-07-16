@@ -1,5 +1,26 @@
 <!DOCTYPE html>
 <html lang="es">
+  <!-- Soporte para PWA (Aplicación Instalable) -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => {
+          // Detecta si hay una nueva versión disponible y recarga de forma transparente
+          reg.onupdatefound = () => {
+            const installingWorker = reg.installing;
+            installingWorker.onstatechange = () => {
+              if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                console.log('Nueva versión detectada. Actualizando...');
+                window.location.reload();
+              }
+            };
+          };
+        })
+        .catch(err => console.error('Error al registrar Service Worker:', err));
+    }
+  </script>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">

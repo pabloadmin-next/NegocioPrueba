@@ -251,18 +251,7 @@ function aceptarRegistroDesdeEscaner() {
     codigoTemporalEscaneado = "";
 }
 
-function abrirModalProducto(codigoPreestablecido = "") {
-    const localActual = document.getElementById("localRegistro").value;
-    
-    document.getElementById("modalCodigoInput").value = codigoPreestablecido;
-    document.getElementById("modalDescripcionInput").value = "";
-    document.getElementById("modalPrecioInput").value = "";
-    
-    // Mostramos visualmente el local activo en el cartel sin opción a cambiarlo
-    document.getElementById("modalLocalDisplay").innerText = `🏪 ${localActual}`;
 
-    document.getElementById("modalNuevoProducto").classList.remove("hidden");
-}
 
 function cerrarModalProducto() {
     document.getElementById("modalNuevoProducto").classList.add("hidden");
@@ -274,7 +263,15 @@ function escanearEnModal() {
     iniciarEscaneo();
 }
 
+// NUEVA VERSIÓN PROTEGIDA: Solo permite abrir si el rol es "ADMIN"
 function abrirModalProducto(codigoPreestablecido = "") {
+    // Validamos si hay un usuario activo y si tiene el rol de ADMIN
+    if (!usuarioActivo || usuarioActivo.rol !== "ADMIN") {
+        mostrarToast("🚫 Acceso denegado: Solo los administradores pueden registrar productos.", "error");
+        return; // Bloquea la apertura del modal
+    }
+
+    // Si es ADMIN, el código continúa normalmente:
     const localActual = document.getElementById("localRegistro").value;
     
     document.getElementById("modalCodigoInput").value = codigoPreestablecido;
