@@ -540,7 +540,7 @@ function guardarNuevoProductoBD() {
 
     // Payload que enviaremos a Apps Script
     const payload = {
-        operacion: "NUEVO_PRODUCTO", // Tu script de Apps Script debe identificar esta operación para insertar la fila
+        operacion: "CREAR_PRODUCTO", // Tu script de Apps Script debe identificar esta operación para insertar la fila
         codigo: codigo,
         producto: producto,
         precio: precio,
