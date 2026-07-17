@@ -1,32 +1,33 @@
 <!DOCTYPE html>
 <html lang="es">
 
-
 <head>
-  <!-- Soporte para PWA (Aplicación Instalable) -->
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0f172a">
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js')
-      .then(reg => {
-        // Detecta si hay una nueva versión disponible y recarga de forma transparente
-        reg.onupdatefound = () => {
-          const installingWorker = reg.installing;
-          installingWorker.onstatechange = () => {
-            if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('Nueva versión detectada. Actualizando...');
-              window.location.reload();
-            }
-          };
-        };
-      })
-      .catch(err => console.error('Error al registrar Service Worker:', err));
-  }
-</script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sistema POS Multi-Local</title>
+
+  <!-- Soporte para PWA (Aplicación Instalable - Ubicado dentro del HEAD) -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => {
+          // Detecta si hay una nueva versión disponible y recarga de forma transparente
+          reg.onupdatefound = () => {
+            const installingWorker = reg.installing;
+            installingWorker.onstatechange = () => {
+              if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                console.log('Nueva versión detectada. Actualizando...');
+                window.location.reload();
+              }
+            };
+          };
+        })
+        .catch(err => console.error('Error al registrar Service Worker:', err));
+    }
+  </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
@@ -212,8 +213,7 @@
 
               <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
                 <div class="md:col-span-5 relative">
-                  <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">Producto (Escribí para
-                    buscar)</label>
+                  <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">Producto (Escribí para buscar)</label>
                   <input type="text" id="productoInput" placeholder="Ej: sal fina..."
                     class="w-full clay-input px-3 py-2 text-xs outline-none" autocomplete="off">
                   <div id="sugerenciasList"
@@ -269,8 +269,7 @@
               </div>
 
               <div class="max-h-48 overflow-y-auto space-y-2 pr-1" id="listaCarrito">
-                <p class="text-center text-xs text-slate-400 py-4 italic">El carrito está vacío. Sumá algún producto
-                  arriba.</p>
+                <p class="text-center text-xs text-slate-400 py-4 italic">El carrito está vacío. Sumá algún producto arriba.</p>
               </div>
 
               <div
@@ -297,8 +296,7 @@
           </div>
 
           <div class="clay-card p-5 h-64 flex flex-col">
-            <h3 class="text-xs font-bold text-slate-400 mb-3 text-center uppercase tracking-wider">Top Productos Hoy
-            </h3>
+            <h3 class="text-xs font-bold text-slate-400 mb-3 text-center uppercase tracking-wider">Top Productos Hoy</h3>
             <div class="flex-1 relative"><canvas id="chartClientes"></canvas></div>
           </div>
 
@@ -327,7 +325,7 @@
     </main>
   </div>
 
-  <!-- MODAL NUEVO PRODUCTO -->
+  <!-- MODAL NUEVO PRODUCTO (ACTUALIZADO CON SELECCIÓN MÚLTIPLE) -->
   <div id="modalNuevoProducto"
     class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-40 hidden">
     <div class="clay-card p-6 max-w-sm w-full space-y-4 bg-white relative">
@@ -341,10 +339,19 @@
       <p class="text-[11px] text-slate-400">Completá todos los campos para guardar el producto en la base de datos.</p>
 
       <div class="space-y-3">
-        <!-- LOCAL AL QUE SE ASOCIARÁ (Muestra automáticamente el seleccionado arriba) -->
-        <div class="bg-indigo-50/50 border border-indigo-100 rounded-xl p-3 flex justify-between items-center">
-          <span class="text-[10px] font-bold uppercase text-indigo-500">Local de Destino</span>
-          <span id="modalLocalDisplay" class="text-xs font-black text-indigo-700">🏪 Local 1</span>
+        <!-- SELECCIÓN MÚLTIPLE DE LOCALES (NUEVO CAMBIO AQUÍ) -->
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">Disponibilidad en Locales</label>
+          <div class="flex gap-4 p-3 bg-slate-50 rounded-xl border border-slate-200/60">
+            <label class="flex items-center gap-2 cursor-pointer font-medium text-sm text-slate-800">
+              <input type="checkbox" id="chkLocal1" value="Local 1" class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+              <span>Local 1</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer font-medium text-sm text-slate-800">
+              <input type="checkbox" id="chkLocal2" value="Local 2" class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+              <span>Local 2</span>
+            </label>
+          </div>
         </div>
 
         <div>
@@ -412,7 +419,7 @@
     </div>
   </div>
 
-  <!-- CONTENEDOR FLOTANTE PARA EL ESCÁNER DE LA CÁMARA (NUEVO Z-INDEX ULTRA ALTO Z-[100]) -->
+  <!-- CONTENEDOR FLOTANTE PARA EL ESCÁNER DE LA CÁMARA -->
   <div id="scannerContainer"
     class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 z-[100] hidden">
     <div class="clay-card p-6 max-w-sm w-full bg-white border border-slate-200">
@@ -427,12 +434,14 @@
       </button>
     </div>
   </div>
+
   <!-- CARTEL DE SINCRONIZACIÓN INICIAL -->
   <div id="loaderSincronizacion"
     class="fixed bottom-6 right-6 bg-slate-900 text-white px-5 py-4 rounded-2xl shadow-2xl flex items-center space-x-3 text-xs font-bold z-50 transition-all duration-500 transform translate-y-20 opacity-0 pointer-events-none">
     <div class="animate-spin rounded-full h-4 w-4 border-2 border-indigo-400 border-t-transparent"></div>
     <span>🔄 Sincronizando base de productos...</span>
   </div>
+
   <script src="app.js"></script>
 </body>
 

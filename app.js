@@ -1,4 +1,4 @@
-const urlAppsScript = "https://script.google.com/macros/s/AKfycbxGbZNTA7QSt3YP6h7oETeKDAC5rBgLBebNOkTIL2lARRgBlJuaorIFU_KsTz1_B7cJ/exec"; 
+const urlAppsScript = "https://script.google.com/macros/s/AKfycbzmFli949ZrNun1e5Zeidyh-heLLJnbn_-JZbLfTTnU3N7tnMrfpPx7gy5-zPBozLCg7Q/exec"; 
 // REEMPLAZÁ CON TU URL CORRECTA DE APPS SCRIPT 
 
 const USUARIOS = {
@@ -293,7 +293,7 @@ function abrirModalProducto(codigoPreestablecido = "") {
     document.getElementById("modalPrecioInput").value = "";
     
     // Mostramos visualmente el local activo en el cartel sin opción a cambiarlo
-    document.getElementById("modalLocalDisplay").innerText = `🏪 ${localActual}`;
+    //document.getElementById("modalLocalDisplay").innerText = `🏪 ${localActual}`;
 
     document.getElementById("modalNuevoProducto").classList.remove("hidden");
 }
@@ -485,7 +485,6 @@ function renderizarDatosAdmin() {
     
     const localSeleccionado = document.getElementById("filtroLocalAdmin").value;
     const dataLocal = datosLocalesCrudos.locales[localSeleccionado];
-
     if (!dataLocal) return;
 
     const totalVentas = dataLocal.ventas.Efectivo + dataLocal.ventas.Transferencia + dataLocal.ventas.Tarjeta;
@@ -536,11 +535,15 @@ function formatPesos(num) {
 // NUEVA FUNCIÓN PARA GUARDAR PRODUCTOS EN GOOGLE SHEETS
 function guardarNuevoProductoBD() {
     const btn = document.getElementById("btnGuardarNuevoProducto");
-    const localActual = document.getElementById("localRegistro").value;
     
     const codigo = document.getElementById("modalCodigoInput").value.trim();
     const producto = document.getElementById("modalDescripcionInput").value.trim();
     const precio = parseFloat(document.getElementById("modalPrecioInput").value);
+
+    // Obtener los locales seleccionados
+    const localesSeleccionados = [];
+    if (document.getElementById("chkLocal1").checked) localesSeleccionados.push("Local 1");
+    if (document.getElementById("chkLocal2").checked) localesSeleccionados.push("Local 2");
 
     // Validación de campos obligatorios
     if (!codigo || !producto || isNaN(precio) || precio <= 0) {
@@ -548,17 +551,21 @@ function guardarNuevoProductoBD() {
         return;
     }
 
-    // Cambiamos el estado del botón a "Cargando" para evitar doble click
+    if (localesSeleccionados.length === 0) {
+        mostrarToast("⚠️ Debes seleccionar al menos un local para este producto.", "error");
+        return;
+    }
+
     btn.innerText = "⏳ Guardando...";
     btn.disabled = true;
 
-    // Payload que enviaremos a Apps Script
+    // Payload con el array de locales
     const payload = {
-        operacion: "CREAR_PRODUCTO", // Tu script de Apps Script debe identificar esta operación para insertar la fila
+        operacion: "CREAR_PRODUCTO",
         codigo: codigo,
         producto: producto,
         precio: precio,
-        local: localActual
+        locales: localesSeleccionados // Enviamos un array (ej: ["Local 1", "Local 2"])
     };
 
     fetch(urlAppsScript, {
@@ -573,10 +580,16 @@ function guardarNuevoProductoBD() {
         btn.disabled = false;
 
         if (data.status === "success") {
-            mostrarToast("✨ ¡Producto registrado y sincronizado con éxito!");
-            cerrarModalProducto();
+            mostrarToast("✨ ¡Producto registrado con éxito!");
             
-            // Forzamos la descarga de la lista de productos actualizada
+            // Limpiamos los campos y desmarcamos los checkboxes
+            document.getElementById("modalCodigoInput").value = "";
+            document.getElementById("modalDescripcionInput").value = "";
+            document.getElementById("modalPrecioInput").value = "";
+            document.getElementById("chkLocal1").checked = false;
+            document.getElementById("chkLocal2").checked = false;
+
+            cerrarModalProducto();
             descargarListaProductos(); 
         } else {
             mostrarToast("Error al guardar: " + data.message, "error");
@@ -584,7 +597,7 @@ function guardarNuevoProductoBD() {
     })
     .catch(err => {
         console.error(err);
-        mostrarToast("Fallo de red al intentar registrar el producto.", "error");
+        mostrarToast("Fallo de red al intentar registrar.", "error");
         btn.innerText = "💾 Registrar";
         btn.disabled = false;
     });
